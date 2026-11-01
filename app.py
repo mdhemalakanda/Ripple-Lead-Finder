@@ -542,7 +542,10 @@ def find_free_port(preferred=5000, tries=60):
                   else list(range(preferred, preferred + tries)))
     for p in candidates:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            # No SO_REUSEADDR here on purpose: on macOS it would let us bind
+            # 127.0.0.1:5000 even while AirPlay Receiver holds *:5000, so the
+            # port would look free but requests would land on AirPlay, which
+            # closes them empty ("Unexpected end of JSON input" in the page).
             try:
                 s.bind(("127.0.0.1", p))
                 return p
