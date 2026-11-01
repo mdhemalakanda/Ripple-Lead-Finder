@@ -503,7 +503,12 @@ function makeSearchable(sel) {
   });
   inp.addEventListener("input", () => { render(inp.value); open(); });
   inp.addEventListener("blur", () => setTimeout(close, 120));
-  sel.addEventListener("change", () => { inp.value = current(); });
+  sel.addEventListener("change", () => {
+    inp.value = current();
+    // the option list was just replaced (e.g. towns loaded) — don't leave a
+    // stale panel open showing items that no longer exist
+    if (panel.style.display === "block") render("");
+  });
   inp.value = current();
 }
 

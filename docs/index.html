@@ -612,19 +612,25 @@
     return geo;
   }
 
-  async function overpass(query) {
+  async function overpass(query, timeoutSec) {
     let last = null;
     for (const mirror of OVERPASS) {
+      const ctrl = new AbortController();
+      const kill = setTimeout(() => ctrl.abort(), (timeoutSec || 30) * 1000);
       try {
         const body = new URLSearchParams({ data: query });
-        const r = await fetch(mirror, { method: "POST", body: body });
+        const r = await fetch(mirror, { method: "POST", body: body, signal: ctrl.signal });
         if (!r.ok) throw new Error("HTTP " + r.status);
         const j = await r.json();
-        // Some networks firewalls return a valid-but-empty {} for blocked
+        // Some network filters return a valid-but-empty {} for blocked
         // domains — treat that as a failure and try the next mirror.
         if (!j || !Array.isArray(j.elements)) throw new Error("empty/blocked response");
         return j;
-      } catch (e) { last = e; }
+      } catch (e) {
+        last = e;
+      } finally {
+        clearTimeout(kill);
+      }
     }
     throw new Error("OpenStreetMap's search API isn't reachable from this network right now " +
       "(all mirrors failed: " + last + "). If this keeps happening, your network may be blocking it — " +
@@ -650,7 +656,7 @@
       for (const kind of ["node", "way"])
         parts.push('  ' + kind + '["' + k + '"="' + v + '"]["name"]' + box + ";");
     const query = "[out:json][timeout:90];\n(\n" + parts.join("\n") + "\n);\nout center tags meta " + (limit * 4) + ";";
-    const result = await overpass(query);
+    const result = await overpass(query, 45);
 
     const thin = THIN.has(geo.country_code);
     const minActivity = strict ? (thin ? 1 : 2) : 0;
@@ -805,7 +811,9 @@
     const iso = COUNTRY_ISO[country];
     if (!iso) throw new Error("No ISO code on file for '" + country + "'.");
     const q = '[out:json][timeout:60];area["ISO3166-1"="' + iso + '"]["admin_level"="2"]->.c;(node["place"="city"](area.c);node["place"="town"](area.c););out tags 1600;';
-    const result = await overpass(q);
+    // short per-mirror timeout: the town dropdown must fall back to the
+    // type-it-yourself field quickly instead of hanging on "Loading towns…"
+    const result = await overpass(q, 12);
     const seen = new Set(), pops = [];
     for (const el of (result.elements || [])) {
       const t = el.tags || {};
@@ -954,7 +962,12 @@ function makeSearchable(sel) {
   });
   inp.addEventListener("input", () => { render(inp.value); open(); });
   inp.addEventListener("blur", () => setTimeout(close, 120));
-  sel.addEventListener("change", () => { inp.value = current(); });
+  sel.addEventListener("change", () => {
+    inp.value = current();
+    // the option list was just replaced (e.g. towns loaded) — don't leave a
+    // stale panel open showing items that no longer exist
+    if (panel.style.display === "block") render("");
+  });
   inp.value = current();
 }
 
