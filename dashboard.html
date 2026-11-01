@@ -952,11 +952,11 @@ function renderDetail() {
     <div class="d-section">
       <div class="d-label">Contact</div>
       ${l.address ? `<div class="crow">${icn("pin")} ${esc(l.address)}</div>` : ""}
-      ${l.phone ? `<div class="crow">${icn("phone")} <a href="tel:${esc(l.phone).replace(/[^+\d]/g,'')}">${esc(l.phone)}</a><span class="cpy" onclick="copyLink(this,'${encodeURIComponent(l.phone_e164||l.phone)}')">copy</span></div>`
+      ${l.phone ? `<div class="crow">${icn("phone")} <a href="tel:${esc(l.phone).replace(/[^+0-9]/g,'')}">${esc(l.phone)}</a><span class="cpy" onclick="copyLink(this,'${encodeURIComponent(l.phone_e164||l.phone)}')">copy</span>${l.whatsapp ? "" : `<span class="cpy" onclick="validateWhatsapp('${encodeURIComponent("https://wa.me/"+String(l.phone_e164||l.phone).replace(/[^0-9]/g,""))}','${esc(l.name)}')">validate on WhatsApp</span>`}</div>`
                 : `<div class="crow missing">${icn("phone")} No phone in the map data</div>`}
       ${l.email ? `<div class="crow">${icn("mail")} <a href="mailto:${esc(l.email)}">${esc(l.email)}</a><span class="cpy" onclick="copyLink(this,'${encodeURIComponent(l.email)}')">copy</span></div>`
                 : `<div class="crow missing">${icn("mail")} No email in the map data</div>`}
-      ${l.whatsapp ? `<div class="crow">${icn("social")} <a href="${esc(l.whatsapp)}" target="_blank"><b>Message on WhatsApp &rarr;</b></a><span class="cpy" onclick="copyLink(this,'${encodeURIComponent(l.whatsapp)}')">copy</span></div>` : ""}
+      ${l.whatsapp ? `<div class="crow">${icn("social")} <a href="${esc(l.whatsapp)}" target="_blank"><b>Message on WhatsApp &rarr;</b></a><span class="cpy" onclick="copyLink(this,'${encodeURIComponent(l.whatsapp)}')">copy</span><span class="cpy" onclick="validateWhatsapp('${encodeURIComponent(l.whatsapp)}','${esc(l.name)}')">validate</span></div>` : ""}
       ${l.website ? `<div class="crow">${icn("globe")} <a href="${esc(l.website)}" target="_blank">${esc(l.website)}</a></div>` : ""}
       ${socRows}
       ${l.opening_hours ? `<div class="crow">${icn("clock")} ${esc(l.opening_hours)}</div>` : ""}
@@ -1095,6 +1095,20 @@ function copyMsg(btn) {
   navigator.clipboard.writeText(document.getElementById("mbox").innerText).then(() => {
     const o = btn.textContent; btn.textContent = "✓ Copied"; setTimeout(()=>btn.textContent=o, 1400);
   });
+}
+
+// ── WhatsApp number validation ────────────────────────────────────────────────
+// WhatsApp has no public "does this number exist" API, and unofficial checkers
+// violate their terms (account bans). So the check IS the chat link itself:
+// WhatsApp answers definitively — a real number opens a chat, an unregistered
+// one shows "Phone number shared via url is invalid."
+function validateWhatsapp(enc, name) {
+  const url = decodeURIComponent(enc);
+  window.open(url, "_blank");
+  show("info",
+    "Checking <b>" + esc(name || "this number") + "</b> on WhatsApp (opened in a new tab).<br>" +
+    "✅ A chat window opens → the number <b>is on WhatsApp</b>.<br>" +
+    "❌ It says <i>“Phone number shared via url is invalid”</i> → <b>not on WhatsApp</b> — skip the DM, use phone or email instead.");
 }
 
 async function setStage(id, stage) {
