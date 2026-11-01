@@ -311,7 +311,9 @@ def _overpass(query):
             last = e
             time.sleep(1.5)  # mirrors rate-limit; give the next one a beat
     raise LeadFinderError(
-        f"All OpenStreetMap mirrors were busy or unreachable. Try again in a minute. ({last})"
+        f"OpenStreetMap's search API isn't reachable from this network — all mirrors failed ({last}). "
+        "If this keeps happening, your internet connection is blocking OpenStreetMap: "
+        "try phone mobile data / a different Wi-Fi, or a VPN, then search again."
     )
 
 
