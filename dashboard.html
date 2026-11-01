@@ -841,7 +841,7 @@ const ICONS = {
 };
 function icn(n) { return ICONS[n] || ICONS.link; }
 
-function pick(id) { selId = id; msgMode = "fb"; renderList(); renderDetail(); getMessage(false); }
+function pick(id) { selId = String(id); msgMode = "fb"; renderList(); renderDetail(); getMessage(false); }
 
 function renderDetail() {
   const l = LEADS.find(x => x.id === selId);

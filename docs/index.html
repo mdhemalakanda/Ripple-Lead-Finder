@@ -202,8 +202,9 @@
 </head>
 <body>
 <div style="background:#2f4a3c;color:#eaf4ee;padding:9px 18px;font-size:12.5px;text-align:center;font-family:inherit">
-  <b>Static demo</b> — sample data only. The real app searches OpenStreetMap live and runs
-  locally: <a href="https://github.com/RippleCheck/Ripple-Lead-Finder" style="color:#bfe3cf">get it here</a>.
+  <b>Live search</b> — this page queries OpenStreetMap directly from your browser; saved leads stay in this browser.
+  Website health-checks, AI messages and Foundry links need the
+  <a href="https://github.com/RippleCheck/Ripple-Lead-Finder" style="color:#bfe3cf">desktop app</a>.
 </div>
 
 <div class="wrap">
@@ -439,86 +440,387 @@
 
 
 <script>
-// ── DEMO SHIM: answers every /api/* call with deterministic sample data so the
-// dashboard runs unmodified on GitHub Pages. No network requests leave the page.
+// ── LIVE SHIM: reimplements the Flask API client-side so the dashboard runs
+// unmodified on GitHub Pages, searching OpenStreetMap for real. ──────────────
 (function () {
   const realFetch = window.fetch.bind(window);
 
-  const NICHES = ["Car Wash", "Barber Shop", "Dental Clinic", "Estate Agent", "Cafe",
-    "Gym", "Restaurant", "Plumber", "Electrician", "Hair Salon", "Auto Repair",
-    "Bakery", "Florist", "Photographer", "Dog Groomer", "Yoga Studio"];
+  const CATALOGUE = {"Hotel": {"seg": "Hospitality", "tags": [["tourism", "hotel"]]}, "Luxury Hotel / Resort": {"seg": "Hospitality", "tags": [["tourism", "resort"], ["leisure", "resort"]]}, "Boutique Hotel": {"seg": "Hospitality", "tags": [["tourism", "hotel"]]}, "Motel": {"seg": "Hospitality", "tags": [["tourism", "motel"]]}, "Hostel": {"seg": "Hospitality", "tags": [["tourism", "hostel"]]}, "Guest House / B&B": {"seg": "Hospitality", "tags": [["tourism", "guest_house"], ["tourism", "bed_and_breakfast"]]}, "Homestay": {"seg": "Hospitality", "tags": [["tourism", "guest_house"]]}, "Vacation Rental": {"seg": "Hospitality", "tags": [["tourism", "chalet"], ["tourism", "apartment"]]}, "Serviced Apartments": {"seg": "Hospitality", "tags": [["tourism", "apartment"]]}, "Camping / Caravan Site": {"seg": "Hospitality", "tags": [["tourism", "camp_site"], ["tourism", "caravan_site"]]}, "Restaurant": {"seg": "Food & Drink", "tags": [["amenity", "restaurant"]]}, "Fine Dining": {"seg": "Food & Drink", "tags": [["amenity", "restaurant"]]}, "Pizzeria": {"seg": "Food & Drink", "tags": [["cuisine", "pizza"], ["amenity", "fast_food"]]}, "Sushi / Japanese": {"seg": "Food & Drink", "tags": [["cuisine", "sushi"], ["cuisine", "japanese"]]}, "Cafe": {"seg": "Food & Drink", "tags": [["amenity", "cafe"]]}, "Coffee Shop / Roaster": {"seg": "Food & Drink", "tags": [["shop", "coffee"]]}, "Tea House": {"seg": "Food & Drink", "tags": [["shop", "tea"]]}, "Bakery": {"seg": "Food & Drink", "tags": [["shop", "bakery"], ["shop", "pastry"]]}, "Confectionery / Sweets": {"seg": "Food & Drink", "tags": [["shop", "confectionery"], ["shop", "chocolate"]]}, "Ice Cream Shop": {"seg": "Food & Drink", "tags": [["amenity", "ice_cream"], ["shop", "ice_cream"]]}, "Juice / Smoothie Bar": {"seg": "Food & Drink", "tags": [["shop", "beverages"]]}, "Fast Food": {"seg": "Food & Drink", "tags": [["amenity", "fast_food"]]}, "Food Truck": {"seg": "Food & Drink", "tags": [["amenity", "fast_food"]]}, "Cloud Kitchen": {"seg": "Food & Drink", "tags": [["amenity", "fast_food"]]}, "Bar": {"seg": "Food & Drink", "tags": [["amenity", "bar"]]}, "Pub": {"seg": "Food & Drink", "tags": [["amenity", "pub"]]}, "Lounge": {"seg": "Food & Drink", "tags": [["amenity", "bar"]]}, "Nightclub": {"seg": "Food & Drink", "tags": [["amenity", "nightclub"]]}, "Brewery": {"seg": "Food & Drink", "tags": [["craft", "brewery"], ["industrial", "brewery"]]}, "Winery": {"seg": "Food & Drink", "tags": [["craft", "winery"], ["shop", "wine"]]}, "Wine / Liquor Shop": {"seg": "Food & Drink", "tags": [["shop", "wine"], ["shop", "alcohol"]]}, "Catering Service": {"seg": "Food & Drink", "tags": [["craft", "caterer"]]}, "Deli / Fine Food": {"seg": "Food & Drink", "tags": [["shop", "deli"]]}, "Butcher": {"seg": "Food & Drink", "tags": [["shop", "butcher"]]}, "Fishmonger": {"seg": "Food & Drink", "tags": [["shop", "seafood"]]}, "Greengrocer": {"seg": "Food & Drink", "tags": [["shop", "greengrocer"]]}, "Health Food Shop": {"seg": "Food & Drink", "tags": [["shop", "health_food"]]}, "Farm Shop": {"seg": "Food & Drink", "tags": [["shop", "farm"]]}, "Hospital": {"seg": "Healthcare", "tags": [["amenity", "hospital"]]}, "Eye Hospital": {"seg": "Healthcare", "tags": [["healthcare:speciality", "ophthalmology"]]}, "Medical Clinic": {"seg": "Healthcare", "tags": [["amenity", "clinic"], ["amenity", "doctors"]]}, "Doctor / GP": {"seg": "Healthcare", "tags": [["amenity", "doctors"], ["healthcare", "doctor"]]}, "Dentist": {"seg": "Healthcare", "tags": [["amenity", "dentist"], ["healthcare", "dentist"]]}, "Dental Clinic": {"seg": "Healthcare", "tags": [["amenity", "dentist"]]}, "Orthodontist": {"seg": "Healthcare", "tags": [["healthcare:speciality", "orthodontics"]]}, "Dermatology Clinic": {"seg": "Healthcare", "tags": [["healthcare:speciality", "dermatology"]]}, "Cosmetic Clinic": {"seg": "Healthcare", "tags": [["healthcare", "cosmetic_surgery"], ["shop", "beauty"]]}, "Plastic Surgeon": {"seg": "Healthcare", "tags": [["healthcare:speciality", "plastic_surgery"]]}, "Physiotherapy": {"seg": "Healthcare", "tags": [["healthcare", "physiotherapist"]]}, "Chiropractor": {"seg": "Healthcare", "tags": [["healthcare", "chiropractor"]]}, "Optometrist / Optician": {"seg": "Healthcare", "tags": [["shop", "optician"], ["healthcare", "optometrist"]]}, "Diagnostic Lab": {"seg": "Healthcare", "tags": [["healthcare", "laboratory"]]}, "Pharmacy": {"seg": "Healthcare", "tags": [["amenity", "pharmacy"], ["healthcare", "pharmacy"]]}, "Mental Health Clinic": {"seg": "Healthcare", "tags": [["healthcare", "psychotherapist"], ["healthcare:speciality", "psychiatry"]]}, "Fertility / IVF Centre": {"seg": "Healthcare", "tags": [["healthcare:speciality", "fertility"]]}, "Home Care": {"seg": "Healthcare", "tags": [["healthcare", "nurse"], ["social_facility", "nursing_home"]]}, "Veterinary Clinic": {"seg": "Healthcare", "tags": [["amenity", "veterinary"]]}, "Gym / Fitness": {"seg": "Fitness", "tags": [["leisure", "fitness_centre"]]}, "CrossFit Box": {"seg": "Fitness", "tags": [["leisure", "fitness_centre"]]}, "Yoga Studio": {"seg": "Fitness", "tags": [["leisure", "fitness_centre"], ["sport", "yoga"]]}, "Pilates Studio": {"seg": "Fitness", "tags": [["sport", "pilates"]]}, "Personal Trainer": {"seg": "Fitness", "tags": [["leisure", "fitness_centre"]]}, "Martial Arts": {"seg": "Fitness", "tags": [["sport", "martial_arts"], ["sport", "karate"]]}, "Swim School": {"seg": "Fitness", "tags": [["leisure", "swimming_pool"], ["sport", "swimming"]]}, "Sports Academy": {"seg": "Fitness", "tags": [["leisure", "sports_centre"]]}, "Cricket Academy": {"seg": "Fitness", "tags": [["sport", "cricket"]]}, "Football Academy": {"seg": "Fitness", "tags": [["sport", "soccer"], ["sport", "football"]]}, "Badminton / Court Booking": {"seg": "Fitness", "tags": [["sport", "badminton"], ["leisure", "sports_centre"]]}, "Spa": {"seg": "Fitness", "tags": [["leisure", "spa"], ["shop", "spa"]]}, "Massage Center": {"seg": "Fitness", "tags": [["shop", "massage"]]}, "Med Spa": {"seg": "Fitness", "tags": [["shop", "beauty"]]}, "Beauty Salon": {"seg": "Fitness", "tags": [["shop", "beauty"]]}, "Nail Salon": {"seg": "Fitness", "tags": [["shop", "nails"], ["shop", "beauty"]]}, "Lash & Brow Studio": {"seg": "Fitness", "tags": [["shop", "beauty"]]}, "Barber Shop": {"seg": "Fitness", "tags": [["shop", "hairdresser"]]}, "Hair Salon": {"seg": "Fitness", "tags": [["shop", "hairdresser"]]}, "Tattoo Studio": {"seg": "Fitness", "tags": [["shop", "tattoo"]]}, "Makeup Artist": {"seg": "Fitness", "tags": [["shop", "beauty"], ["craft", "beautician"]]}, "School": {"seg": "Education", "tags": [["amenity", "school"]]}, "College / University": {"seg": "Education", "tags": [["amenity", "college"], ["amenity", "university"]]}, "Coaching Institute": {"seg": "Education", "tags": [["amenity", "prep_school"], ["office", "educational_institution"]]}, "Tuition / Tutoring": {"seg": "Education", "tags": [["office", "tutoring"]]}, "Skill Institute": {"seg": "Education", "tags": [["amenity", "training"]]}, "Coding Bootcamp": {"seg": "Education", "tags": [["amenity", "training"]]}, "Music School": {"seg": "Education", "tags": [["amenity", "music_school"]]}, "Dance Academy": {"seg": "Education", "tags": [["leisure", "dance"], ["amenity", "dancing_school"]]}, "Language Institute": {"seg": "Education", "tags": [["amenity", "language_school"]]}, "Driving School": {"seg": "Education", "tags": [["amenity", "driving_school"]]}, "Childcare / Nursery": {"seg": "Education", "tags": [["amenity", "childcare"], ["amenity", "kindergarten"]]}, "Library": {"seg": "Education", "tags": [["amenity", "library"]]}, "Law Firm": {"seg": "Legal & Finance", "tags": [["office", "lawyer"]]}, "Personal Injury Lawyer": {"seg": "Legal & Finance", "tags": [["office", "lawyer"]]}, "Immigration Lawyer": {"seg": "Legal & Finance", "tags": [["office", "lawyer"]]}, "Notary": {"seg": "Legal & Finance", "tags": [["office", "notary"]]}, "Tax Consultant": {"seg": "Legal & Finance", "tags": [["office", "tax_advisor"]]}, "Accountant": {"seg": "Legal & Finance", "tags": [["office", "accountant"]]}, "Bookkeeping": {"seg": "Legal & Finance", "tags": [["office", "accountant"]]}, "Financial Advisor": {"seg": "Legal & Finance", "tags": [["office", "financial_advisor"], ["office", "financial"]]}, "Wealth Management": {"seg": "Legal & Finance", "tags": [["office", "financial"]]}, "Insurance Agency": {"seg": "Legal & Finance", "tags": [["office", "insurance"]]}, "Mortgage Broker": {"seg": "Legal & Finance", "tags": [["office", "mortgage_broker"]]}, "Loan Agency": {"seg": "Legal & Finance", "tags": [["office", "financial"]]}, "Stock Broker": {"seg": "Legal & Finance", "tags": [["office", "financial"]]}, "Bank / Credit Union": {"seg": "Legal & Finance", "tags": [["amenity", "bank"]]}, "Company Secretary": {"seg": "Legal & Finance", "tags": [["office", "company"]]}, "Real Estate Agency": {"seg": "Property", "tags": [["office", "estate_agent"]]}, "Property Management": {"seg": "Property", "tags": [["office", "property_management"]]}, "Property Developer": {"seg": "Property", "tags": [["office", "construction_company"]]}, "Construction Company": {"seg": "Property", "tags": [["office", "construction_company"], ["craft", "builder"]]}, "Civil Contractor": {"seg": "Property", "tags": [["craft", "builder"]]}, "Home Builder": {"seg": "Property", "tags": [["craft", "builder"]]}, "Renovation": {"seg": "Property", "tags": [["craft", "builder"], ["shop", "doityourself"]]}, "Interior Designer": {"seg": "Property", "tags": [["shop", "interior_decoration"], ["office", "interior_design"]]}, "Architect": {"seg": "Property", "tags": [["office", "architect"]]}, "Landscape Architect": {"seg": "Property", "tags": [["office", "architect"], ["craft", "gardener"]]}, "Surveyor": {"seg": "Property", "tags": [["office", "surveyor"]]}, "Self Storage": {"seg": "Property", "tags": [["shop", "storage_rental"]]}, "Coworking Space": {"seg": "Property", "tags": [["office", "coworking"], ["amenity", "coworking_space"]]}, "Clothing Store": {"seg": "Retail", "tags": [["shop", "clothes"]]}, "Boutique": {"seg": "Retail", "tags": [["shop", "boutique"], ["shop", "clothes"]]}, "Shoe Store": {"seg": "Retail", "tags": [["shop", "shoes"]]}, "Jewellery Store": {"seg": "Retail", "tags": [["shop", "jewelry"]]}, "Watch Store / Repair": {"seg": "Retail", "tags": [["shop", "watches"], ["craft", "watchmaker"]]}, "Cosmetics Store": {"seg": "Retail", "tags": [["shop", "cosmetics"], ["shop", "perfumery"]]}, "Furniture Store": {"seg": "Retail", "tags": [["shop", "furniture"]]}, "Home Decor": {"seg": "Retail", "tags": [["shop", "houseware"], ["shop", "interior_decoration"]]}, "Electronics Store": {"seg": "Retail", "tags": [["shop", "electronics"]]}, "Mobile Phone Store": {"seg": "Retail", "tags": [["shop", "mobile_phone"]]}, "Computer / Repair Shop": {"seg": "Retail", "tags": [["shop", "computer"], ["shop", "computer_repair"], ["shop", "mobile_phone_repair"]]}, "Grocery / Convenience": {"seg": "Retail", "tags": [["shop", "convenience"], ["shop", "grocery"]]}, "Supermarket": {"seg": "Retail", "tags": [["shop", "supermarket"]]}, "Organic Store": {"seg": "Retail", "tags": [["shop", "organic"], ["shop", "health_food"]]}, "Pet Store": {"seg": "Retail", "tags": [["shop", "pet"]]}, "Pet Grooming": {"seg": "Retail", "tags": [["shop", "pet_grooming"]]}, "Pet Boarding": {"seg": "Retail", "tags": [["amenity", "animal_boarding"]]}, "Dog Training": {"seg": "Retail", "tags": [["amenity", "animal_training"]]}, "Bookstore": {"seg": "Retail", "tags": [["shop", "books"]]}, "Toy Store": {"seg": "Retail", "tags": [["shop", "toys"]]}, "Gift Shop": {"seg": "Retail", "tags": [["shop", "gift"]]}, "Stationery Shop": {"seg": "Retail", "tags": [["shop", "stationery"]]}, "Sports Shop": {"seg": "Retail", "tags": [["shop", "sports"]]}, "Bicycle Shop": {"seg": "Retail", "tags": [["shop", "bicycle"]]}, "Florist": {"seg": "Retail", "tags": [["shop", "florist"]]}, "Garden Centre / Nursery": {"seg": "Retail", "tags": [["shop", "garden_centre"], ["shop", "nursery"]]}, "Hardware Store": {"seg": "Retail", "tags": [["shop", "hardware"], ["shop", "doityourself"]]}, "Antique Shop": {"seg": "Retail", "tags": [["shop", "antiques"]]}, "Second-hand / Charity": {"seg": "Retail", "tags": [["shop", "second_hand"], ["shop", "charity"]]}, "Tailor / Alterations": {"seg": "Retail", "tags": [["craft", "tailor"], ["shop", "tailor"], ["craft", "dressmaker"]]}, "Shoe Repair": {"seg": "Retail", "tags": [["craft", "shoemaker"], ["shop", "shoe_repair"]]}, "Laundry / Dry Clean": {"seg": "Retail", "tags": [["shop", "laundry"], ["shop", "dry_cleaning"]]}, "Car Dealership": {"seg": "Automotive", "tags": [["shop", "car"]]}, "Used Car Dealer": {"seg": "Automotive", "tags": [["shop", "car"]]}, "EV Dealership": {"seg": "Automotive", "tags": [["shop", "car"]]}, "Bike / Motorcycle Dealer": {"seg": "Automotive", "tags": [["shop", "motorcycle"]]}, "Motorcycle Workshop": {"seg": "Automotive", "tags": [["shop", "motorcycle_repair"]]}, "Auto Repair Garage": {"seg": "Automotive", "tags": [["shop", "car_repair"]]}, "Tyre Shop": {"seg": "Automotive", "tags": [["shop", "tyres"]]}, "Car Wash": {"seg": "Automotive", "tags": [["amenity", "car_wash"]]}, "Car Detailing": {"seg": "Automotive", "tags": [["shop", "car_repair"]]}, "Car Rental": {"seg": "Automotive", "tags": [["amenity", "car_rental"]]}, "Taxi Company": {"seg": "Automotive", "tags": [["amenity", "taxi"], ["office", "taxi"]]}, "Towing Service": {"seg": "Automotive", "tags": [["shop", "car_repair"]]}, "EV Charging Network": {"seg": "Automotive", "tags": [["amenity", "charging_station"]]}, "Plumber": {"seg": "Home Services", "tags": [["craft", "plumber"]]}, "Electrician": {"seg": "Home Services", "tags": [["craft", "electrician"]]}, "HVAC / Heating": {"seg": "Home Services", "tags": [["craft", "hvac"], ["craft", "heating_engineer"]]}, "AC Repair & Service": {"seg": "Home Services", "tags": [["craft", "hvac"]]}, "Roofer": {"seg": "Home Services", "tags": [["craft", "roofer"]]}, "Carpenter / Joiner": {"seg": "Home Services", "tags": [["craft", "carpenter"], ["craft", "joiner"], ["craft", "cabinet_maker"]]}, "Painter / Decorator": {"seg": "Home Services", "tags": [["craft", "painter"]]}, "Plasterer": {"seg": "Home Services", "tags": [["craft", "plasterer"]]}, "Tiler": {"seg": "Home Services", "tags": [["craft", "tiler"]]}, "Flooring": {"seg": "Home Services", "tags": [["craft", "floorer"], ["craft", "parquet_layer"]]}, "Glazier / Windows": {"seg": "Home Services", "tags": [["craft", "glaziery"], ["craft", "window_construction"]]}, "Locksmith": {"seg": "Home Services", "tags": [["craft", "locksmith"], ["shop", "locksmith"]]}, "Gardener / Landscaper": {"seg": "Home Services", "tags": [["craft", "gardener"]]}, "Cleaning Service": {"seg": "Home Services", "tags": [["craft", "cleaning"], ["shop", "cleaning"]]}, "Pest Control": {"seg": "Home Services", "tags": [["craft", "pest_control"]]}, "Chimney Sweep": {"seg": "Home Services", "tags": [["craft", "chimney_sweeper"]]}, "Scaffolder": {"seg": "Home Services", "tags": [["craft", "scaffolder"]]}, "Stonemason": {"seg": "Home Services", "tags": [["craft", "stonemason"]]}, "Metalworker / Welder": {"seg": "Home Services", "tags": [["craft", "metal_construction"], ["craft", "blacksmith"]]}, "Upholsterer": {"seg": "Home Services", "tags": [["craft", "upholsterer"]]}, "Solar Installer": {"seg": "Home Services", "tags": [["craft", "solar"]]}, "Pool Service": {"seg": "Home Services", "tags": [["craft", "pool_maintenance"]]}, "Water Purifier / RO": {"seg": "Home Services", "tags": [["shop", "water"]]}, "Security Company": {"seg": "Home Services", "tags": [["office", "security"]]}, "Moving Company": {"seg": "Home Services", "tags": [["office", "moving_company"]]}, "Marketing Agency": {"seg": "Professional", "tags": [["office", "advertising_agency"], ["office", "marketing"]]}, "SEO Agency": {"seg": "Professional", "tags": [["office", "advertising_agency"]]}, "Web Design Studio": {"seg": "Professional", "tags": [["office", "it"], ["office", "web_design"]]}, "Branding Studio": {"seg": "Professional", "tags": [["office", "graphic_design"]]}, "IT Company": {"seg": "Professional", "tags": [["office", "it"]]}, "SaaS Company": {"seg": "Professional", "tags": [["office", "it"]]}, "IT Support": {"seg": "Professional", "tags": [["office", "it"]]}, "BPO / Call Centre": {"seg": "Professional", "tags": [["office", "telecommunication"]]}, "Consulting": {"seg": "Professional", "tags": [["office", "consulting"]]}, "HR Consulting": {"seg": "Professional", "tags": [["office", "employment_agency"]]}, "Recruitment Agency": {"seg": "Professional", "tags": [["office", "employment_agency"]]}, "Translation Service": {"seg": "Professional", "tags": [["office", "translator"]]}, "Photography Studio": {"seg": "Professional", "tags": [["craft", "photographer"], ["shop", "photo"]]}, "Wedding Photography": {"seg": "Professional", "tags": [["craft", "photographer"]]}, "Video Production": {"seg": "Professional", "tags": [["craft", "photographer"], ["office", "film_production"]]}, "Podcast Studio": {"seg": "Professional", "tags": [["studio", "audio"]]}, "Print Shop": {"seg": "Professional", "tags": [["shop", "copyshop"], ["shop", "printing"]]}, "Printing Press": {"seg": "Professional", "tags": [["craft", "printer"]]}, "Copywriting Studio": {"seg": "Professional", "tags": [["office", "advertising_agency"]]}, "Picture Framer": {"seg": "Professional", "tags": [["craft", "frame_maker"], ["shop", "frame"]]}, "Art Gallery / Studio": {"seg": "Professional", "tags": [["shop", "art"], ["tourism", "gallery"]]}, "Travel Agency": {"seg": "Travel & Events", "tags": [["shop", "travel_agency"]]}, "Tour Operator": {"seg": "Travel & Events", "tags": [["office", "tour_operator"], ["shop", "travel_agency"]]}, "Adventure Tours": {"seg": "Travel & Events", "tags": [["shop", "outdoor"], ["office", "tour_operator"]]}, "Visa Consultant": {"seg": "Travel & Events", "tags": [["office", "visa"]]}, "Event Venue": {"seg": "Travel & Events", "tags": [["amenity", "events_venue"]]}, "Banquet Hall": {"seg": "Travel & Events", "tags": [["amenity", "events_venue"]]}, "Wedding Venue": {"seg": "Travel & Events", "tags": [["amenity", "events_venue"]]}, "Wedding Planner": {"seg": "Travel & Events", "tags": [["office", "wedding_planner"]]}, "Wedding Decorator": {"seg": "Travel & Events", "tags": [["shop", "party"]]}, "Bridal Makeup": {"seg": "Travel & Events", "tags": [["shop", "beauty"]]}, "Event Management": {"seg": "Travel & Events", "tags": [["office", "event_management"]]}, "Event Rentals": {"seg": "Travel & Events", "tags": [["shop", "party"], ["shop", "rental"]]}, "DJ & Entertainment": {"seg": "Travel & Events", "tags": [["office", "event_management"]]}, "Cinema": {"seg": "Entertainment", "tags": [["amenity", "cinema"]]}, "Gaming Center": {"seg": "Entertainment", "tags": [["leisure", "amusement_arcade"], ["amenity", "internet_cafe"]]}, "Escape Room": {"seg": "Entertainment", "tags": [["leisure", "escape_game"]]}, "Bowling Alley": {"seg": "Entertainment", "tags": [["leisure", "bowling_alley"]]}, "Amusement Park": {"seg": "Entertainment", "tags": [["tourism", "theme_park"]]}, "Museum": {"seg": "Entertainment", "tags": [["tourism", "museum"]]}, "Textile Manufacturer": {"seg": "Manufacturing", "tags": [["craft", "textile"], ["industrial", "textile"]]}, "Garment Factory": {"seg": "Manufacturing", "tags": [["industrial", "garment"], ["man_made", "works"]]}, "Furniture Manufacturer": {"seg": "Manufacturing", "tags": [["craft", "cabinet_maker"], ["industrial", "furniture"]]}, "Steel & Metal Works": {"seg": "Manufacturing", "tags": [["industrial", "steel"], ["industrial", "foundry"]]}, "Plastics Manufacturer": {"seg": "Manufacturing", "tags": [["industrial", "plastic"]]}, "Chemical Manufacturer": {"seg": "Manufacturing", "tags": [["industrial", "chemical"]]}, "Food Processing": {"seg": "Manufacturing", "tags": [["industrial", "food"], ["man_made", "works"]]}, "Pharma Manufacturer": {"seg": "Manufacturing", "tags": [["industrial", "pharmaceutical"]]}, "Packaging Company": {"seg": "Manufacturing", "tags": [["industrial", "packaging"]]}, "Factory / Works": {"seg": "Manufacturing", "tags": [["man_made", "works"], ["landuse", "industrial"]]}, "Industrial Supplier": {"seg": "Manufacturing", "tags": [["shop", "trade"], ["shop", "industrial"]]}, "Machinery Supplier": {"seg": "Manufacturing", "tags": [["shop", "machinery"], ["shop", "agrarian"]]}, "Courier Service": {"seg": "Logistics", "tags": [["amenity", "post_office"], ["office", "courier"]]}, "Logistics Company": {"seg": "Logistics", "tags": [["office", "logistics"]]}, "Freight Forwarder": {"seg": "Logistics", "tags": [["office", "forwarding_agency"], ["office", "logistics"]]}, "Warehouse": {"seg": "Logistics", "tags": [["building", "warehouse"], ["landuse", "logistics"]]}, "Farm": {"seg": "Agriculture", "tags": [["place", "farm"], ["landuse", "farmyard"]]}, "Dairy Farm": {"seg": "Agriculture", "tags": [["shop", "dairy"], ["landuse", "farmyard"]]}, "Poultry Farm": {"seg": "Agriculture", "tags": [["landuse", "farmyard"]]}, "Plant Nursery": {"seg": "Agriculture", "tags": [["shop", "garden_centre"], ["landuse", "plant_nursery"]]}, "Agri Company": {"seg": "Agriculture", "tags": [["shop", "agrarian"]]}, "Temple": {"seg": "Community", "tags": [["building", "temple"], ["religion", "hindu"]]}, "Ashram / Retreat": {"seg": "Community", "tags": [["amenity", "monastery"]]}, "Church": {"seg": "Community", "tags": [["building", "church"], ["religion", "christian"]]}, "Mosque": {"seg": "Community", "tags": [["building", "mosque"], ["religion", "muslim"]]}, "Gurudwara": {"seg": "Community", "tags": [["religion", "sikh"]]}, "NGO / Charity": {"seg": "Community", "tags": [["office", "ngo"], ["office", "charity"]]}, "Community Organisation": {"seg": "Community", "tags": [["amenity", "community_centre"], ["office", "association"]]}, "Funeral Director": {"seg": "Community", "tags": [["shop", "funeral_directors"]]}, "Government Office": {"seg": "Community", "tags": [["office", "government"]]}};
 
-  const CITIES = ["London", "Manchester", "Birmingham", "Leeds", "Glasgow", "Liverpool",
-    "Bristol", "Sheffield", "Edinburgh", "Cardiff", "New York", "Los Angeles", "Chicago",
-    "Houston", "Phoenix", "Philadelphia", "San Antonio", "San Diego", "Dallas", "Austin"];
+  const COUNTRY_ISO = {"United Kingdom":"GB","United States":"US","Australia":"AU","Canada":"CA","Ireland":"IE","New Zealand":"NZ","Germany":"DE","France":"FR","Spain":"ES","Italy":"IT","Netherlands":"NL","Belgium":"BE","Portugal":"PT","Austria":"AT","Switzerland":"CH","Sweden":"SE","Norway":"NO","Denmark":"DK","Finland":"FI","Iceland":"IS","Poland":"PL","Czechia":"CZ","Slovakia":"SK","Hungary":"HU","Romania":"RO","Bulgaria":"BG","Greece":"GR","Croatia":"HR","Slovenia":"SI","Serbia":"RS","Bosnia and Herzegovina":"BA","North Macedonia":"MK","Albania":"AL","Montenegro":"ME","Estonia":"EE","Latvia":"LV","Lithuania":"LT","Ukraine":"UA","Moldova":"MD","Georgia":"GE","Armenia":"AM","Azerbaijan":"AZ","Turkey":"TR","Cyprus":"CY","Malta":"MT","Luxembourg":"LU","Monaco":"MC","Andorra":"AD","United Arab Emirates":"AE","Saudi Arabia":"SA","Qatar":"QA","Kuwait":"KW","Bahrain":"BH","Oman":"OM","Jordan":"JO","Lebanon":"LB","Israel":"IL","Egypt":"EG","Morocco":"MA","Tunisia":"TN","Algeria":"DZ","South Africa":"ZA","Kenya":"KE","Nigeria":"NG","Ghana":"GH","Tanzania":"TZ","Uganda":"UG","Ethiopia":"ET","Rwanda":"RW","Botswana":"BW","Namibia":"NA","Zambia":"ZW","Zimbabwe":"ZW","Mauritius":"MU","Seychelles":"SC","Japan":"JP","South Korea":"KR","Singapore":"SG","Malaysia":"MY","Thailand":"TH","Vietnam":"VN","Philippines":"PH","Indonesia":"ID","Taiwan":"TW","Hong Kong":"HK","Sri Lanka":"LK","Nepal":"NP","Bangladesh":"BD","Pakistan":"PK","Kazakhstan":"KZ","Uzbekistan":"UZ","Mexico":"MX","Brazil":"BR","Argentina":"AR","Chile":"CL","Colombia":"CO","Peru":"PE","Ecuador":"EC","Uruguay":"UY","Paraguay":"PY","Bolivia":"BO","Costa Rica":"CR","Panama":"PA","Guatemala":"GT","Dominican Republic":"DO","Jamaica":"JM","Trinidad and Tobago":"TT","Bahamas":"BS","Barbados":"BB","Fiji":"FJ","Papua New Guinea":"PG"};
 
-  const FIRST = ["Sunrise", "Golden", "Riverside", "Central", "Elite", "Fresh", "Prime",
-    "Silver", "Crown", "Metro", "Harbour", "Maple", "Oakwood", "Bluebird", "Star"];
-  const SECOND = ["& Co", "Hub", "Point", "Centre", "Studio", "House", "Works", "Room",
-    "Group", "Express", "Lounge", "Bar"];
+  // mobile-number detection per dialling code: prefixes, or full-length rule
+  const MOBILE = {
+    "44": { pre: ["7"] }, "1": { len: 10 }, "91": { pre: ["6","7","8","9"] },
+    "61": { pre: ["4"] }, "64": { pre: ["2"] }, "353": { pre: ["8"] },
+    "49": { pre: ["1"] }, "33": { pre: ["6","7"] }, "34": { pre: ["6","7"] },
+    "39": { pre: ["3"] }, "31": { pre: ["6"] }, "971": { pre: ["5"] },
+    "27": { pre: ["60","61","62","63","64","65","66","67","68","71","72","73","74","76","78","79","81","82","83","84"] }
+  };
+  const CC_BY_ISO = { gb:"44", us:"1", ca:"1", in:"91", au:"61", nz:"64", ie:"353", de:"49", fr:"33", es:"34", it:"39", nl:"31", ae:"971", za:"27", sg:"65", my:"60", pk:"92", bd:"880", lk:"94", np:"977", ph:"63", id:"62", th:"66", vn:"84" };
 
-  const mod = (i, m, s) => (i * 7919 + s * 104729) % m;
+  const OVERPASS = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://maps.mail.ru/osm/tools/overpass/api/interpreter"
+  ];
+  const NOMINATIM = "https://nominatim.openstreetmap.org/search";
+  const PHOTON = "https://photon.komoot.io/api/";
 
-  function mkLeads(niche, place, count, startId) {
-    const parts = (place || "London, United Kingdom").split(",");
-    const city = parts[0].trim();
-    const country = (parts[1] || "United Kingdom").trim();
-    const out = [];
-    for (let i = 0; i < count; i++) {
-      const noSite = i % 3 !== 0;
-      const n = mod(i, 900, 3);
-      out.push({
-        id: startId + i,
-        name: FIRST[mod(i, FIRST.length, 1)] + " " + niche + " " + SECOND[mod(i, SECOND.length, 2)],
-        niche: niche, city: city, country: country,
-        address: (mod(i, 90, 4) + 10) + " High Street, " + city,
-        phone: noSite || i % 2 ? "+44 7" + String(100000000 + n * 977).slice(0, 9) : "",
-        phone_e164: noSite || i % 2 ? "+447" + String(100000000 + n * 977).slice(0, 9) : "",
-        email: i % 2 === 0 ? "info@" + FIRST[mod(i, FIRST.length, 1)].toLowerCase().replace(/\s/g, "") + n + ".example.com" : "",
-        website: noSite ? "" : "http://old-site-" + n + ".example.com",
-        socials: {}, links_ok: {},
-        opening_hours: "", lat: null, lon: null, osm_url: "",
-        reason: noSite ? "No website tag on OpenStreetMap" : "Website unreachable",
-        score: 55 + mod(i, 40, 6),
-        reachability: "", owner: "", verified_date: "2026-10-28",
-        whatsapp: false, activity: "", segment: "",
-        stage: ["New", "New", "Contacted", "New", "Replied"][i % 5],
-        starred: i === 1, notes: "",
-        found_at: "2026-10-28"
-      });
+  const THIN = new Set(["in","pk","bd","lk","np","ng","ke","id","ph","vn","th","eg","za"]);
+  const CLOSED_MARKERS = ["disused","abandoned","demolished","razed","removed","closed","was","old","historic"];
+  const CLOSED_NAME_HINTS = ["permanently closed","closed down","now closed","ceased trading","out of business","under new management","to let","for lease","coming soon","opening soon","site of former","former "];
+  const SOCIAL_KEYS = { facebook:["contact:facebook","facebook"], instagram:["contact:instagram","instagram"], twitter:["contact:twitter","twitter"], whatsapp:["contact:whatsapp","whatsapp"] };
+
+  const PRICE = { "United Kingdom":"£199", "United States":"$250", "Canada":"C$340", "Australia":"A$380", "New Zealand":"NZ$400", "Ireland":"€230", "Germany":"€230", "France":"€230", "Spain":"€230", "Italy":"€230", "Netherlands":"€230", "Portugal":"€230" };
+
+  // ── helpers ──────────────────────────────────────────────────────────────
+  const J = (obj, status) => new Response(JSON.stringify(obj), { status: status || 200, headers: { "Content-Type": "application/json" } });
+
+  function phoneChannels(phone, iso) {
+    if (!phone) return {};
+    let raw = phone.replace(/[^\d+]/g, "");
+    if (!raw) return {};
+    let digits = raw.startsWith("+") ? raw.slice(1) : raw.startsWith("00") ? raw.slice(2)
+      : ((CC_BY_ISO[(iso || "").toLowerCase()] || "") + raw.replace(/^0+/, ""));
+    const cc = Object.keys(MOBILE).sort((a, b) => b.length - a.length).find(c => digits.startsWith(c)) || "";
+    const national = cc ? digits.slice(cc.length) : digits;
+    const rule = MOBILE[cc];
+    const isMobile = cc && national ? (rule.len ? national.length === rule.len
+      : rule.pre.some(p => national.startsWith(p))) : null;
+    return {
+      e164: "+" + digits,
+      whatsapp: isMobile !== false ? "https://wa.me/" + digits : ""
+    };
+  }
+
+  function looksClosed(tags) {
+    for (const key in tags) {
+      if (key.includes(":") && CLOSED_MARKERS.includes(key.split(":")[0])) return true;
     }
+    for (const f of ["disused","abandoned","closed","demolished","razed"])
+      if (["yes","true","1"].includes(tags[f])) return true;
+    if (["vacant","empty"].includes(tags.shop) || tags.office === "vacant") return true;
+    if (tags.end_date || tags["demolished:building"]) return true;
+    if (["ruins","ruin","collapsed"].includes(tags.building)) return true;
+    if (tags.abandoned || tags.ruins === "yes") return true;
+    const oh = (tags.opening_hours || "").trim().toLowerCase();
+    if (["closed","off","no","none"].includes(oh)) return true;
+    const name = (tags.name || "").toLowerCase();
+    if (CLOSED_NAME_HINTS.some(h => name.includes(h))) return true;
+    if (tags.construction || tags.proposed || tags.planned) return true;
+    if (tags.building === "construction") return true;
+    return false;
+  }
+
+  function activitySignals(tags, edited) {
+    let n = 0;
+    const oh = (tags.opening_hours || "").trim().toLowerCase();
+    if (tags.opening_hours && !["closed","off"].includes(oh)) n++;
+    if (tags.phone || tags["contact:phone"] || tags["contact:mobile"]) n++;
+    if (Object.keys(tags).some(k => k.startsWith("contact:"))) n++;
+    if (tags.check_date || tags["survey:date"]) n++;
+    if (tags["addr:housenumber"] && tags["addr:street"]) n++;
+    if (tags.wheelchair || tags["payment:cash"] || tags.cuisine || tags.outdoor_seating || tags.takeaway || tags.delivery) n++;
+    if (edited && edited >= "2023-01") n++;
+    return n;
+  }
+
+  function first(tags, keys) { for (const k of keys) { if (tags[k]) return String(tags[k]).trim(); } return ""; }
+
+  function socialUrl(kind, val) {
+    if (!val) return "";
+    if (val.startsWith("http")) return val;
+    const base = { facebook: "https://www.facebook.com/", instagram: "https://www.instagram.com/", twitter: "https://twitter.com/" }[kind] || "";
+    return base ? base + val.replace(/^[@/]+/, "") : val;
+  }
+
+  function address(tags) {
+    return [tags["addr:housenumber"], tags["addr:street"],
+      tags["addr:city"] || tags["addr:town"] || tags["addr:suburb"] || "",
+      tags["addr:postcode"]].filter(Boolean).join(" ").trim();
+  }
+
+  function mapsLinks(name, lat, lon, addr, city) {
+    const out = {};
+    if (lat == null || lon == null) {
+      if (name) out.maps_verify = "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent([name, addr || city].filter(Boolean).join(" "));
+      return out;
+    }
+    const ll = lat.toFixed(6) + "," + lon.toFixed(6);
+    const label = [name, addr || city].filter(Boolean).join(" ");
+    out.maps_verify = label ? "https://www.google.com/maps/search/" + encodeURIComponent(label) + "/@" + ll + ",18z"
+      : "https://www.google.com/maps/search/?api=1&query=" + ll;
+    out.maps_pin = "https://www.google.com/maps/search/?api=1&query=" + ll;
+    out.maps_street = "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=" + ll;
     return out;
   }
 
-  // the demo "database"
-  let DB = mkLeads("Car Wash", "Los Angeles, United States", 8, 1);
-  let nextId = 1000;
-
-  const J = (obj) => new Response(JSON.stringify(obj), { headers: { "Content-Type": "application/json" } });
-
-  function facets() {
-    const uniq = (k) => Array.from(new Set(DB.map(l => l[k]).filter(Boolean))).sort();
-    return { niches: uniq("niche"), countries: uniq("country"), cities: uniq("city") };
+  function score(l) {
+    let s = 0;
+    if (l.phone) s += 40;
+    if (l.email) s += 30;
+    if (Object.keys(l.socials).length) s += 15;
+    if (l.address) s += 5;
+    if (l.opening_hours) s += 10;
+    if (l.owner) s += 5;
+    if (l.whatsapp) s += 20;
+    s += Math.min(l.activity, 5) * 4;
+    if (l.verified_date >= "2024-07") s += 10; else if (l.verified_date >= "2022-07") s += 5;
+    return s;
   }
 
+  function reachability(l) {
+    if (l.whatsapp && l.email) return "WhatsApp + Email";
+    if (l.whatsapp) return "WhatsApp";
+    if (l.phone && l.email) return "Phone + Email";
+    if (l.phone) return "Phone only";
+    if (l.email) return "Email only";
+    if (Object.keys(l.socials).length) return "Social only";
+    return "Hard to reach";
+  }
+
+  // ── geocoding (Nominatim -> Photon, mirrors the desktop engine) ──────────
+  async function geocode(place) {
+    let geo = null;
+    try {
+      const r = await (await fetch(NOMINATIM + "?format=json&limit=1&addressdetails=1&q=" + encodeURIComponent(place))).json();
+      if (r.length) {
+        const a = r[0].address || {}, bb = r[0].boundingbox;
+        if (bb && bb.length === 4) geo = {
+          display_name: r[0].display_name, country: a.country || "",
+          country_code: (a.country_code || "").toLowerCase(),
+          bbox: [parseFloat(bb[0]), parseFloat(bb[2]), parseFloat(bb[1]), parseFloat(bb[3])],
+          lat: parseFloat(r[0].lat), lon: parseFloat(r[0].lon)
+        };
+      }
+    } catch (e) {}
+    if (!geo) {
+      const d = await (await fetch(PHOTON + "?limit=1&q=" + encodeURIComponent(place))).json();
+      const f = (d.features || [])[0];
+      if (!f) throw new Error("Couldn't find '" + place + "'. Try a more specific form like 'Leeds, United Kingdom'.");
+      const p = f.properties || {};
+      let south, west, north, east;
+      if (p.extent && p.extent.length === 4) { west = p.extent[0]; north = p.extent[1]; east = p.extent[2]; south = p.extent[3]; }
+      else { const [lo, la] = f.geometry.coordinates; south = la - 0.09; west = lo - 0.14; north = la + 0.09; east = lo + 0.14; }
+      geo = {
+        display_name: [p.name, p.state, p.country].filter(Boolean).join(", "),
+        country: p.country || "", country_code: (p.countrycode || "").toLowerCase(),
+        bbox: [south, west, north, east], lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0]
+      };
+    }
+    return geo;
+  }
+
+  async function overpass(query) {
+    let last = null;
+    for (const mirror of OVERPASS) {
+      try {
+        const body = new URLSearchParams({ data: query });
+        const r = await fetch(mirror, { method: "POST", body: body });
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        const j = await r.json();
+        // Some networks firewalls return a valid-but-empty {} for blocked
+        // domains — treat that as a failure and try the next mirror.
+        if (!j || !Array.isArray(j.elements)) throw new Error("empty/blocked response");
+        return j;
+      } catch (e) { last = e; }
+    }
+    throw new Error("OpenStreetMap's search API isn't reachable from this network right now " +
+      "(all mirrors failed: " + last + "). If this keeps happening, your network may be blocking it — " +
+      "try a different connection, or run the desktop app instead.");
+  }
+
+  // ── the search itself ────────────────────────────────────────────────────
+  async function runSearch(body) {
+    const niche = body.niche || "Barber Shop";
+    const place = (body.place || "").trim();
+    const mode = body.mode || "no_website";
+    const limit = parseInt(body.limit) || 60;
+    const strict = body.strict !== false;
+    if (!place) throw new Error("Type a city and country, e.g. 'Leeds, United Kingdom'.");
+
+    const geo = await geocode(place);
+    const tags = (CATALOGUE[niche] || {}).tags || [];
+    if (!tags.length) throw new Error("Unknown niche '" + niche + "'.");
+    const [south, west, north, east] = geo.bbox;
+    const box = "(" + south + "," + west + "," + north + "," + east + ")";
+    const parts = [];
+    for (const [k, v] of tags)
+      for (const kind of ["node", "way"])
+        parts.push('  ' + kind + '["' + k + '"="' + v + '"]["name"]' + box + ";");
+    const query = "[out:json][timeout:90];\n(\n" + parts.join("\n") + "\n);\nout center tags meta " + (limit * 4) + ";";
+    const result = await overpass(query);
+
+    const thin = THIN.has(geo.country_code);
+    const minActivity = strict ? (thin ? 1 : 2) : 0;
+    const placeLabel = geo.display_name.split(",")[0];
+
+    let leads = [];
+    for (const el of (result.elements || [])) {
+      const t = el.tags || {};
+      const name = (t.name || "").trim();
+      if (!name || looksClosed(t)) continue;
+      const edited = (el.timestamp || "").slice(0, 10);
+      const act = activitySignals(t, edited);
+      if (minActivity && act < minActivity) continue;
+      const website = first(t, ["website", "contact:website", "url", "contact:url"]);
+      const phone = first(t, ["phone", "contact:phone", "contact:mobile", "mobile"]);
+      const ch = phoneChannels(phone, geo.country_code);
+      const socials = {};
+      for (const kind in SOCIAL_KEYS) { const v = first(t, SOCIAL_KEYS[kind]); if (v) socials[kind] = socialUrl(kind, v); }
+      const lat = el.lat != null ? el.lat : (el.center || {}).lat;
+      const lon = el.lon != null ? el.lon : (el.center || {}).lon;
+      const addr = address(t);
+      leads.push({
+        id: (el.type || "n") + el.id,
+        name: name, niche: niche, city: placeLabel, country: geo.country,
+        address: addr, phone: phone,
+        phone_e164: ch.e164 || "", whatsapp: ch.whatsapp || "",
+        email: first(t, ["email", "contact:email"]),
+        owner: first(t, ["operator", "owner", "contact:person", "name:etymology"]),
+        website: website, socials: socials, links_ok: {},
+        opening_hours: t.opening_hours || "",
+        verified_date: t.check_date || t["survey:date"] || edited,
+        lat: lat, lon: lon,
+        osm_url: "https://www.openstreetmap.org/" + (el.type || "node") + "/" + el.id,
+        activity: act, segment: (CATALOGUE[niche] || {}).seg || "",
+        stage: "New", starred: 0, notes: "",
+        maps_verify: mapsLinks(name, lat, lon, addr, placeLabel).maps_verify
+      });
+    }
+
+    // de-duplicate node + way versions of the same shop
+    const seen = new Set();
+    leads = leads.filter(l => {
+      const key = (l.name.toLowerCase() + "|" + (l.address || "").toLowerCase());
+      if (seen.has(key)) return false;
+      seen.add(key); return true;
+    });
+
+    const noSite = leads.filter(l => !l.website);
+    const withSite = leads.filter(l => l.website);
+    for (const l of noSite) { l.qualified = true; l.reason = "No website at all — only findable if you already know they exist"; }
+    for (const l of withSite) {
+      l.qualified = false;
+      l.reason = "Has a website (health checks need the desktop app)";
+    }
+
+    let chosen, note = "";
+    if (mode === "bad_website") {
+      chosen = [];
+      note = "Checking whether existing websites are dead needs the desktop app (browsers can't read other sites). Switch to 'No website at all' or 'Both' here.";
+    } else if (mode === "all") {
+      chosen = noSite.concat(withSite);
+      note = "Website health-checks are off in this browser version — the desktop app flags dead sites automatically.";
+    } else {
+      chosen = noSite;
+    }
+
+    for (const l of chosen) { l.score = score(l); l.reachability = reachability(l); }
+    chosen.sort((a, b) => b.score - a.score);
+    chosen = chosen.slice(0, limit);
+
+    dbInsert(chosen);
+
+    return {
+      place: geo.display_name, country: geo.country,
+      scanned: (result.elements || []).length,
+      found: chosen.length, new_leads: dbInsertCount, duplicates: chosen.length - dbInsertCount,
+      filter_niche: niche,
+      filter_city: chosen.length ? chosen[0].city : placeLabel,
+      filter_country: chosen.length ? chosen[0].country : geo.country,
+      whatsapp_count: chosen.filter(l => l.whatsapp).length,
+      note: note, leads: chosen
+    };
+  }
+
+  // ── saved-lead database (localStorage) ───────────────────────────────────
+  const DB_KEY = "rlf_live_leads_v1";
+  let dbInsertCount = 0;
+  function dbLoad() { try { return JSON.parse(localStorage.getItem(DB_KEY) || "[]"); } catch (e) { return []; } }
+  function dbSave(rows) { try { localStorage.setItem(DB_KEY, JSON.stringify(rows.slice(0, 800))); } catch (e) {} }
+  function dbInsert(leads) {
+    dbInsertCount = 0;
+    const rows = dbLoad();
+    const have = new Set(rows.map(r => r.id));
+    for (const l of leads) if (!have.has(l.id)) { rows.push(l); have.add(l.id); dbInsertCount++; }
+    dbSave(rows);
+    return dbInsertCount;
+  }
+  function facets(rows) {
+    const uniq = k => Array.from(new Set(rows.map(l => l[k]).filter(Boolean))).sort();
+    return { niches: uniq("niche"), countries: uniq("country"), cities: uniq("city") };
+  }
   function leadList(params) {
-    let rows = DB.slice();
+    let rows = dbLoad();
     const eq = (k, v) => { if (v) rows = rows.filter(l => l[k] === v); };
     eq("niche", params.get("niche")); eq("country", params.get("country"));
     eq("city", params.get("city")); eq("stage", params.get("stage"));
     if (params.get("starred")) rows = rows.filter(l => l.starred);
     const q = params.get("q");
-    if (q) rows = rows.filter(l => (l.name + " " + l.city).toLowerCase().includes(q.toLowerCase()));
+    if (q) { const ql = q.toLowerCase(); rows = rows.filter(l => (l.name + " " + l.city).toLowerCase().includes(ql)); }
     rows.sort((a, b) => (b.starred - a.starred) || (b.score - a.score) || a.name.localeCompare(b.name));
     const stages = {};
-    rows.forEach(l => { stages[l.stage] = (stages[l.stage] || 0) + 1; });
-    return {
-      leads: rows, stages: stages,
-      starred_total: rows.filter(l => l.starred).length,
-      total_all: DB.length, facets: facets()
-    };
+    rows.forEach(l => { const s = l.stage || "New"; stages[s] = (stages[s] || 0) + 1; });
+    return { leads: rows, stages: stages, starred_total: rows.filter(l => l.starred).length, total_all: dbLoad().length, facets: facets(dbLoad()) };
   }
 
+  // ── message + brief templates (AI rewrites need the desktop app) ─────────
+  function buildMessage(l, kind) {
+    const price = PRICE[l.country] || "$250";
+    const name = l.owner ? "Hi " + l.owner.split(" ")[0] : "Hi";
+    if (kind === "email") {
+      return name + ",\n\nI came across " + l.name + " on OpenStreetMap" +
+        (l.city ? " in " + l.city : "") + " and noticed you don't seem to have a website yet. " +
+        "A simple site would help people find you on Google and trust you instantly.\n\n" +
+        "I build clean, fast websites for local businesses for around " + price + " — live in about a week.\n\n" +
+        "Want me to put a quick demo together for " + l.name + "?\n\n— Sent from the Ripple Lead Finder live demo";
+    }
+    return name + "! Found " + l.name + (l.city ? " in " + l.city : "") +
+      " — love what you're doing. Noticed there's no website showing up for you on Google though. " +
+      "I build simple sites for local " + (l.niche || "businesses").toLowerCase() + " (~" + price + ", live in about a week). " +
+      "Want me to mock one up for " + l.name + " so you can see it first? No pressure either way \u{1F44D}";
+  }
+
+  function buildBrief(l) {
+    return "BUSINESS BRIEF — " + l.name + "\n" +
+      "Industry: " + l.niche + "\nLocation: " + [l.address, l.city, l.country].filter(Boolean).join(", ") + "\n" +
+      "Phone: " + (l.phone || "—") + "\nEmail: " + (l.email || "—") + "\n" +
+      "Current website: " + (l.website || "NONE — they need a first site") + "\n" +
+      "Opening hours: " + (l.opening_hours || "—") + "\n" +
+      "Social: " + (Object.keys(l.socials).map(k => k + ": " + l.socials[k]).join(" | ") || "—") + "\n\n" +
+      "Build them a simple one-page site: hero with name + photo, services, opening hours, " +
+      "click-to-call phone button, Google Maps embed, and a contact form. Mobile-first — most " +
+      "local customers browse on a phone.";
+  }
+
+  // ── town list per country (live Overpass, cached 24h) ────────────────────
+  async function listCities(country) {
+    const cacheKey = "rlf_live_cities_" + country;
+    try {
+      const hit = JSON.parse(localStorage.getItem(cacheKey) || "null");
+      if (hit && hit.at > Date.now() - 864e5) return hit.cities;
+    } catch (e) {}
+    const iso = COUNTRY_ISO[country];
+    if (!iso) throw new Error("No ISO code on file for '" + country + "'.");
+    const q = '[out:json][timeout:60];area["ISO3166-1"="' + iso + '"]["admin_level"="2"]->.c;(node["place"="city"](area.c);node["place"="town"](area.c););out tags 1600;';
+    const result = await overpass(q);
+    const seen = new Set(), pops = [];
+    for (const el of (result.elements || [])) {
+      const t = el.tags || {};
+      const name = (t["name:en"] || t.name || "").trim();
+      if (!name || seen.has(name.toLowerCase())) continue;
+      seen.add(name.toLowerCase());
+      pops.push([parseInt((t.population || "0").replace(/\D/g, "")) || 0, name]);
+    }
+    pops.sort((a, b) => b[0] - a[0] || a[1].localeCompare(b[1]));
+    const cities = pops.slice(0, 400).map(x => x[1]);
+    try { localStorage.setItem(cacheKey, JSON.stringify({ at: Date.now(), cities: cities })); } catch (e) {}
+    return cities;
+  }
+
+  // ── fetch override ───────────────────────────────────────────────────────
   window.fetch = async function (input, init) {
     const url = typeof input === "string" ? input : (input && input.url) || "";
     const method = ((init && init.method) || (input && input.method) || "GET").toUpperCase();
@@ -529,61 +831,54 @@
 
     if (!p.startsWith("/api/")) return realFetch(input, init);
 
-    // small delay so spinners and progress messages behave like the real app
-    await new Promise(r => setTimeout(r, p === "/api/search" ? 1200 : 120));
+    try {
+      if (p === "/api/niches") {
+        const segs = {};
+        Object.keys(CATALOGUE).sort().forEach(n => {
+          const s = CATALOGUE[n].seg || "Other";
+          (segs[s] = segs[s] || []).push(n);
+        });
+        return J({ has_openai: false, lang: "en", niches: Object.keys(CATALOGUE).sort(), segments: segs });
+      }
+      if (p === "/api/cities") return J({ cities: await listCities(u.searchParams.get("country")), source: "live" });
+      if (p === "/api/health") return J({ ok: true });
+      if (p === "/api/settings") return method === "POST" ? J({ ok: true }) : J({});
+      if (p === "/api/search") return J(await runSearch(body));
+      if (p === "/api/leads") return J(leadList(u.searchParams));
+      if (p === "/api/brief") {
+        const l = dbLoad().find(x => x.id === String(body.id));
+        return J({ brief: l ? buildBrief(l) : "Demo page — run a live search first.", source: "template" });
+      }
+      if (p === "/api/message") {
+        const l = dbLoad().find(x => x.id === String(body.id));
+        return J({ message: l ? buildMessage(l, body.kind || "fb") : "Demo page — run a live search first.", source: "template" });
+      }
+      if (p === "/api/manual-link") return J({ error: "Manual link building needs the desktop app." });
+      if (p === "/api/insta") return J({ error: "Instagram verification needs the desktop app." }, 400);
 
-    if (p === "/api/niches") return J({ has_openai: false, lang: "en", niches: NICHES, segments: {} });
-    if (p === "/api/cities") return J({ cities: CITIES, source: "demo" });
-    if (p === "/api/health") return J({ ok: true });
-    if (p === "/api/settings") return J({});
-    if (p === "/api/brief")
-      return J({ brief: "Demo mode — the real app builds this brief from live map data and the business's current website.", source: "demo" });
-    if (p === "/api/message")
-      return J({ message: "Demo mode — the real app writes a personalised outreach message for this business.", source: "demo" });
-    if (p === "/api/manual-link")
-      return J({ error: "Demo mode — manual link building needs the local app." });
+      const m = p.match(/^\/api\/lead\/(.+)$/);
+      if (m) {
+        const id = decodeURIComponent(m[1]);
+        const rows = dbLoad();
+        const lead = rows.find(l => l.id === id);
+        if (!lead) return J({ error: "Lead not found" }, 404);
+        if (method === "DELETE") { dbSave(rows.filter(l => l.id !== id)); return J({ ok: true }); }
+        ["stage", "notes", "phone", "email", "starred"].forEach(k => { if (body[k] !== undefined) lead[k] = body[k]; });
+        dbSave(rows);
+        return J({ ok: true });
+      }
 
-    if (p === "/api/search") {
-      const niche = body.niche || "Car Wash";
-      const place = body.place || "London, United Kingdom";
-      const leads = mkLeads(niche, place, 7, nextId);
-      leads.forEach(l => { if (!DB.some(x => x.name === l.name && x.city === l.city)) DB.push(l); });
-      nextId += 100;
-      const parts = place.split(",");
-      return J({
-        place: place,
-        scanned: 40 + mod(place.length, 120, 5),
-        found: leads.length, new_leads: leads.length, duplicates: 0,
-        filter_niche: niche,
-        filter_city: parts[0].trim(),
-        filter_country: (parts[1] || "").trim(),
-        whatsapp_count: 2, note: "Demo mode — these are sample businesses, not live map results.",
-        leads: leads
-      });
+      if (p === "/api/export.csv") {
+        const head = "name,niche,city,country,phone,email,website,score,stage";
+        const esc = v => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
+        const lines = dbLoad().map(l => [l.name, l.niche, l.city, l.country, l.phone, l.email, l.website, l.score, l.stage].map(esc).join(","));
+        return new Response([head].concat(lines).join("\n"), { headers: { "Content-Type": "text/csv" } });
+      }
+
+      return J({});
+    } catch (err) {
+      return J({ error: String(err.message || err) }, 400);
     }
-
-    if (p === "/api/leads") return J(leadList(u.searchParams));
-
-    const m = p.match(/^\/api\/lead\/(\d+)$/);
-    if (m) {
-      const id = +m[1];
-      const lead = DB.find(l => l.id === id);
-      if (!lead) return J({ error: "Lead not found" }), new Response(null, { status: 404 });
-      if (method === "DELETE") { DB = DB.filter(l => l.id !== id); return J({ ok: true }); }
-      ["stage", "notes", "phone", "email", "starred"].forEach(k => {
-        if (body[k] !== undefined) lead[k] = body[k];
-      });
-      return J({ ok: true });
-    }
-
-    if (p === "/api/export.csv") {
-      const head = "name,niche,city,country,phone,email,website,score,stage";
-      const lines = DB.map(l => [l.name, l.niche, l.city, l.country, l.phone, l.email, l.website, l.score, l.stage]
-        .map(v => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"').join(","));
-      return new Response([head].concat(lines).join("\n"), { headers: { "Content-Type": "text/csv" } });
-    }
-
-    return J({});
   };
 })();
 </script>
@@ -997,7 +1292,7 @@ const ICONS = {
 };
 function icn(n) { return ICONS[n] || ICONS.link; }
 
-function pick(id) { selId = id; msgMode = "fb"; renderList(); renderDetail(); getMessage(false); }
+function pick(id) { selId = String(id); msgMode = "fb"; renderList(); renderDetail(); getMessage(false); }
 
 function renderDetail() {
   const l = LEADS.find(x => x.id === selId);
