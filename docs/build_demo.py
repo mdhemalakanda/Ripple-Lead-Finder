@@ -353,11 +353,11 @@ SHIM = """
 
   // ── saved-lead database (localStorage) ───────────────────────────────────
   const DB_KEY = "rlf_live_leads_v1";
+  const waConfigured = () => !!(localStorage.getItem("rlf_wa_token") && localStorage.getItem("rlf_wa_phone"));
   let dbInsertCount = 0;
   function dbLoad() { try { return JSON.parse(localStorage.getItem(DB_KEY) || "[]"); } catch (e) { return []; } }
   function dbSave(rows) { try { localStorage.setItem(DB_KEY, JSON.stringify(rows.slice(0, 800))); } catch (e) {} }
-  function dbInsert(leads) {
-    dbInsertCount = 0;
+  function dbInsert(leads) {    dbInsertCount = 0;
     const rows = dbLoad();
     const have = new Set(rows.map(r => r.id));
     for (const l of leads) if (!have.has(l.id)) { rows.push(l); have.add(l.id); dbInsertCount++; }
@@ -472,7 +472,37 @@ SHIM = """
       }
       if (p === "/api/cities") return J({ cities: await listCities(u.searchParams.get("country")), source: "live" });
       if (p === "/api/health") return J({ ok: true });
-      if (p === "/api/settings") return method === "POST" ? J({ ok: true }) : J({});
+      if (p === "/api/settings") {
+        if (method === "POST") {
+          try {
+            if (body.wa_token) localStorage.setItem("rlf_wa_token", body.wa_token);
+            if (body.wa_phone_id) localStorage.setItem("rlf_wa_phone", body.wa_phone_id);
+          } catch (e) {}
+          return J({ ok: true, wa_configured: waConfigured() });
+        }
+        return J({ wa_configured: waConfigured() });
+      }
+      if (p === "/api/wa-validate") {
+        if (!waConfigured())
+          return J({ error: "not_configured", hint: "Add a WhatsApp Cloud API token and phone-number ID in Settings to validate numbers automatically in the background." }, 400);
+        let lead = null;
+        try { lead = dbLoad().find(l => l.id === String(body.id)); } catch (e) {}
+        const digits = String((lead && (lead.phone_e164 || lead.phone)) || "").replace(/[^0-9]/g, "");
+        if (!digits) return J({ error: "This lead has no phone number to check." }, 400);
+        const resp = await fetch("https://graph.facebook.com/v21.0/" + localStorage.getItem("rlf_wa_phone") +
+          "/contacts?access_token=" + encodeURIComponent(localStorage.getItem("rlf_wa_token")), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ blocking: "wait", contacts: ["+" + digits] })
+        });
+        const out = await resp.json();
+        if (!resp.ok) {
+          const msg = (out.error && out.error.message) || ("HTTP " + resp.status);
+          return J({ error: "WhatsApp API error: " + msg }, 502);
+        }
+        const c = (out.contacts || [{}])[0];
+        return J({ on_whatsapp: c.status === "valid", status: c.status, number: "+" + digits });
+      }
       if (p === "/api/search") return J(await runSearch(body));
       if (p === "/api/leads") return J(leadList(u.searchParams));
       if (p === "/api/brief") {

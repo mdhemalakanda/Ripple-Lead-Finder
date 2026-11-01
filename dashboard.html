@@ -432,6 +432,12 @@
       <input type="checkbox" id="s_insta" style="width:auto"> Check Instagram activity <span id="instaAvail" style="font-size:11px;opacity:.6"></span>
     </label>
     <div class="hint"><b>Off by default, and that is the right default.</b> Instagram's terms prohibit automated access, and anonymous lookups get rate-limited within a handful of requests. Capped at 12 checks per run with a 3s gap. A blocked check is reported as "unknown", never as "inactive".</div>
+
+    <label style="margin-top:10px">Automatic WhatsApp validation <span class="keybadge off" id="waBadge">not set</span></label>
+    <input type="password" id="s_watoken" placeholder="WhatsApp Cloud API access token (EAAG...)">
+    <input type="text" id="s_waphone" placeholder="WhatsApp phone-number ID (numbers only)">
+    <div class="hint">Powers the <b>validate</b> button: checks in the background, via WhatsApp's official Business Cloud API, whether a number is registered — no WhatsApp app needed. Free tier: create a Meta app at developers.facebook.com → add the WhatsApp product → copy the temporary access token and the phone-number ID. Leaving the token blank keeps the saved one.</div>
+
     <div class="hint">Leaving a key field blank keeps the previously saved key.</div>
 
     <div class="modal-actions">
@@ -1098,17 +1104,38 @@ function copyMsg(btn) {
 }
 
 // ── WhatsApp number validation ────────────────────────────────────────────────
-// WhatsApp has no public "does this number exist" API, and unofficial checkers
-// violate their terms (account bans). So the check IS the chat link itself:
-// WhatsApp answers definitively — a real number opens a chat, an unregistered
-// one shows "Phone number shared via url is invalid."
-function validateWhatsapp(enc, name) {
-  const url = decodeURIComponent(enc);
-  window.open(url, "_blank");
+// With a WhatsApp Cloud API token in Settings, the check runs in the background
+// via the official "contacts" endpoint — no WhatsApp app, nothing opens. Without
+// a token, we fall back to opening wa.me, where WhatsApp itself answers.
+async function validateWhatsapp(enc, name) {
+  show("info", "Checking <b>" + esc(name || "this number") + "</b> on WhatsApp…");
+  try {
+    const r = await fetch("/api/wa-validate", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ id: selId })
+    });
+    const d = await r.json();
+    if (r.ok) {
+      show(d.on_whatsapp ? "ok" : "err",
+        (d.on_whatsapp ? "✅ " : "❌ ") + "<b>" + esc(name || "") + "</b> (" + esc(d.number) + ") is " +
+        (d.on_whatsapp ? "<b>on WhatsApp</b> — go ahead and DM." :
+                          "<b>not on WhatsApp</b> — skip the DM, use phone or email instead."));
+      return;
+    }
+    if (d.error === "not_configured") { fallbackWhatsappCheck(enc, name, d.hint); return; }
+    show("err", "WhatsApp check failed: " + esc(d.error || "unknown error"));
+  } catch (e) {
+    fallbackWhatsappCheck(enc, name, "");
+  }
+}
+
+function fallbackWhatsappCheck(enc, name, hint) {
+  window.open(decodeURIComponent(enc), "_blank");
   show("info",
-    "Checking <b>" + esc(name || "this number") + "</b> on WhatsApp (opened in a new tab).<br>" +
+    "Opened WhatsApp in a new tab for <b>" + esc(name || "this number") + "</b>.<br>" +
     "✅ A chat window opens → the number <b>is on WhatsApp</b>.<br>" +
-    "❌ It says <i>“Phone number shared via url is invalid”</i> → <b>not on WhatsApp</b> — skip the DM, use phone or email instead.");
+    "❌ <i>“Phone number shared via url is invalid”</i> → <b>not on WhatsApp</b>.<br>" +
+    (hint ? "<b>Tip:</b> " + esc(hint) : ""));
 }
 
 async function setStage(id, stage) {
@@ -1258,11 +1285,14 @@ async function openSettings() {
     document.getElementById("s_insta").checked = !!s.insta_check;
     document.getElementById("instaAvail").textContent =
       s.insta_available ? "" : "(needs: pip install instaloader)";
-    ["s_oakey","s_ankey","s_gkkey"].forEach(function(i){document.getElementById(i).value="";});
+    ["s_oakey","s_ankey","s_gkkey","s_watoken"].forEach(function(i){document.getElementById(i).value="";});
     setProvider(s.ai_provider || "openai");
     var gk=document.getElementById("gkBadge");
     gk.textContent = s.has_grok_key ? "set" : "not set";
     gk.className = "keybadge" + (s.has_grok_key ? "" : " off");
+    var wa=document.getElementById("waBadge");
+    wa.textContent = s.wa_configured ? "set ✓" : "not set";
+    wa.className = "keybadge" + (s.wa_configured ? "" : " off");
     const oa = document.getElementById("oaBadge"), an = document.getElementById("anBadge");
     oa.textContent = s.has_openai_key ? "set ✓" : "not set";
     oa.className = "keybadge" + (s.has_openai_key ? "" : " off");
@@ -1294,6 +1324,10 @@ async function saveSettings() {
   if (oaKey) body.openai_api_key = oaKey;
   if (anKey) body.anthropic_api_key = anKey;
   if (gkKey) body.grok_api_key = gkKey;
+  const waToken = document.getElementById("s_watoken").value.trim();
+  const waPhone = document.getElementById("s_waphone").value.trim();
+  if (waToken) body.wa_token = waToken;
+  if (waPhone) body.wa_phone_id = waPhone;
   try {
     const r = await (await fetch("/api/settings", {
       method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body)

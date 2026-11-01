@@ -14,8 +14,11 @@ import csv
 import io
 import json
 import os
+import re
 import sqlite3
 import traceback
+import urllib.error
+import urllib.request
 from datetime import datetime
 
 from flask import Flask, Response, jsonify, request, send_from_directory
@@ -297,6 +300,7 @@ def api_settings_get():
         "has_openai_key": bool(cfg.get("openai_api_key")),
         "has_anthropic_key": bool(cfg.get("anthropic_api_key")),
         "has_grok_key": bool(cfg.get("grok_api_key")),
+        "wa_configured": bool(cfg.get("wa_token") and cfg.get("wa_phone_id")),
     })
 
 
@@ -318,6 +322,10 @@ def api_settings_post():
     for k in ("openai_api_key", "anthropic_api_key", "grok_api_key"):
         if body.get(k):  # only overwrite if they actually typed one
             cfg[k] = body[k]
+    if body.get("wa_phone_id"):
+        cfg["wa_phone_id"] = body["wa_phone_id"].strip()
+    if body.get("wa_token"):  # secret — only overwrite if they actually typed one
+        cfg["wa_token"] = body["wa_token"].strip()
     save_config(cfg)
     messages.apply_settings(cfg)
     engine.set_agency(cfg.get("agency", ""))
@@ -452,6 +460,51 @@ def api_message():
     else:
         text, source = messages.build(lead, kind, lang), "template"
     return jsonify({"message": text, "source": source})
+
+
+@app.route("/api/wa-validate", methods=["POST"])
+def api_wa_validate():
+    """
+    Automatic WhatsApp-presence check via the official WhatsApp Business Cloud
+    API "contacts" endpoint — the one legitimate way to ask whether a number is
+    registered without messaging it. Needs a Meta token + phone-number ID in
+    Settings; without them the dashboard falls back to the wa.me click-check.
+    """
+    body = request.get_json(force=True) or {}
+    cfg = load_config()
+    token, pid = cfg.get("wa_token"), cfg.get("wa_phone_id")
+    if not (token and pid):
+        return jsonify({
+            "error": "not_configured",
+            "hint": "Add a WhatsApp Cloud API token and phone-number ID in Settings "
+                    "to validate numbers automatically in the background."
+        }), 400
+    with db() as conn:
+        row = conn.execute("SELECT phone_e164, phone FROM leads WHERE id=?",
+                           (str(body.get("id")),)).fetchone()
+    if not row:
+        return jsonify({"error": "Lead not found"}), 404
+    digits = re.sub(r"[^0-9]", "", row["phone_e164"] or row["phone"] or "")
+    if not digits:
+        return jsonify({"error": "This lead has no phone number to check."}), 400
+    try:
+        req = urllib.request.Request(
+            f"https://graph.facebook.com/v21.0/{pid}/contacts?access_token={token}",
+            data=json.dumps({"blocking": "wait", "contacts": ["+" + digits]}).encode(),
+            headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=20) as r:
+            resp = json.loads(r.read().decode("utf-8", "replace"))
+    except urllib.error.HTTPError as e:
+        return jsonify({"error": f"WhatsApp API error {e.code}: {e.read().decode()[:200]}"}), 502
+    except Exception as e:
+        return jsonify({"error": f"WhatsApp API unreachable: {e}"}), 502
+    contact = (resp.get("contacts") or [{}])[0]
+    status = contact.get("status", "failed")
+    return jsonify({
+        "on_whatsapp": status == "valid",
+        "status": status,
+        "number": "+" + digits,
+    })
 
 
 @app.route("/api/insta", methods=["POST"])
