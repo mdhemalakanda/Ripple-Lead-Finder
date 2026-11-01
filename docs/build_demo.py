@@ -36,6 +36,9 @@ CATALOGUE = {
     for name, (seg, tags, _slug) in categories.CATALOGUE.items()
 }
 
+# bundled major-towns-per-country fallback (same file the desktop app ships)
+CITIES_SEED = json.loads((ROOT / "cities_seed.json").read_text(encoding="utf-8"))
+
 BANNER = """
 <div style="background:#2f4a3c;color:#eaf4ee;padding:9px 18px;font-size:12.5px;text-align:center;font-family:inherit">
   <b>Live search</b> — this page queries OpenStreetMap directly from your browser; saved leads stay in this browser.
@@ -52,6 +55,7 @@ SHIM = """
   const realFetch = window.fetch.bind(window);
 
   const CATALOGUE = __CATALOGUE__;
+  const CITIES_SEED = __SEED__;
 
   const COUNTRY_ISO = {"United Kingdom":"GB","United States":"US","Australia":"AU","Canada":"CA","Ireland":"IE","New Zealand":"NZ","Germany":"DE","France":"FR","Spain":"ES","Italy":"IT","Netherlands":"NL","Belgium":"BE","Portugal":"PT","Austria":"AT","Switzerland":"CH","Sweden":"SE","Norway":"NO","Denmark":"DK","Finland":"FI","Iceland":"IS","Poland":"PL","Czechia":"CZ","Slovakia":"SK","Hungary":"HU","Romania":"RO","Bulgaria":"BG","Greece":"GR","Croatia":"HR","Slovenia":"SI","Serbia":"RS","Bosnia and Herzegovina":"BA","North Macedonia":"MK","Albania":"AL","Montenegro":"ME","Estonia":"EE","Latvia":"LV","Lithuania":"LT","Ukraine":"UA","Moldova":"MD","Georgia":"GE","Armenia":"AM","Azerbaijan":"AZ","Turkey":"TR","Cyprus":"CY","Malta":"MT","Luxembourg":"LU","Monaco":"MC","Andorra":"AD","United Arab Emirates":"AE","Saudi Arabia":"SA","Qatar":"QA","Kuwait":"KW","Bahrain":"BH","Oman":"OM","Jordan":"JO","Lebanon":"LB","Israel":"IL","Egypt":"EG","Morocco":"MA","Tunisia":"TN","Algeria":"DZ","South Africa":"ZA","Kenya":"KE","Nigeria":"NG","Ghana":"GH","Tanzania":"TZ","Uganda":"UG","Ethiopia":"ET","Rwanda":"RW","Botswana":"BW","Namibia":"NA","Zambia":"ZW","Zimbabwe":"ZW","Mauritius":"MU","Seychelles":"SC","Japan":"JP","South Korea":"KR","Singapore":"SG","Malaysia":"MY","Thailand":"TH","Vietnam":"VN","Philippines":"PH","Indonesia":"ID","Taiwan":"TW","Hong Kong":"HK","Sri Lanka":"LK","Nepal":"NP","Bangladesh":"BD","Pakistan":"PK","Kazakhstan":"KZ","Uzbekistan":"UZ","Mexico":"MX","Brazil":"BR","Argentina":"AR","Chile":"CL","Colombia":"CO","Peru":"PE","Ecuador":"EC","Uruguay":"UY","Paraguay":"PY","Bolivia":"BO","Costa Rica":"CR","Panama":"PA","Guatemala":"GT","Dominican Republic":"DO","Jamaica":"JM","Trinidad and Tobago":"TT","Bahamas":"BS","Barbados":"BB","Fiji":"FJ","Papua New Guinea":"PG"};
 
@@ -407,29 +411,41 @@ SHIM = """
       "local customers browse on a phone.";
   }
 
-  // ── town list per country (live Overpass, cached 24h) ────────────────────
+  // ── town list per country (live Overpass, cached 24h, seed fallback) ─────
   async function listCities(country) {
     const cacheKey = "rlf_live_cities_" + country;
     try {
       const hit = JSON.parse(localStorage.getItem(cacheKey) || "null");
-      if (hit && hit.at > Date.now() - 864e5) return hit.cities;
+      // an empty cached list means an old failed lookup — ignore it
+      if (hit && hit.at > Date.now() - 864e5 && hit.cities && hit.cities.length) return hit.cities;
     } catch (e) {}
-    const iso = COUNTRY_ISO[country];
-    if (!iso) throw new Error("No ISO code on file for '" + country + "'.");
-    const q = '[out:json][timeout:60];area["ISO3166-1"="' + iso + '"]["admin_level"="2"]->.c;(node["place"="city"](area.c);node["place"="town"](area.c););out tags 1600;';
-    // short per-mirror timeout: the town dropdown must fall back to the
-    // type-it-yourself field quickly instead of hanging on "Loading towns…"
-    const result = await overpass(q, 12);
-    const seen = new Set(), pops = [];
-    for (const el of (result.elements || [])) {
-      const t = el.tags || {};
-      const name = (t["name:en"] || t.name || "").trim();
-      if (!name || seen.has(name.toLowerCase())) continue;
-      seen.add(name.toLowerCase());
-      pops.push([parseInt((t.population || "0").replace(/\\D/g, "")) || 0, name]);
+    let cities = null;
+    try {
+      const iso = COUNTRY_ISO[country];
+      if (!iso) throw new Error("No ISO code on file for '" + country + "'.");
+      const q = '[out:json][timeout:60];area["ISO3166-1"="' + iso + '"]["admin_level"="2"]->.c;(node["place"="city"](area.c);node["place"="town"](area.c););out tags 1600;';
+      // short per-mirror timeout: the town dropdown must fall back quickly
+      // instead of hanging on "Loading towns…"
+      const result = await overpass(q, 12);
+      const seen = new Set(), pops = [];
+      for (const el of (result.elements || [])) {
+        const t = el.tags || {};
+        const name = (t["name:en"] || t.name || "").trim();
+        if (!name || seen.has(name.toLowerCase())) continue;
+        seen.add(name.toLowerCase());
+        pops.push([parseInt((t.population || "0").replace(/\\D/g, "")) || 0, name]);
+      }
+      pops.sort((a, b) => b[0] - a[0] || a[1].localeCompare(b[1]));
+      cities = pops.slice(0, 400).map(x => x[1]);
+    } catch (e) {
+      // live lookup failed (offline / blocked network) — use the bundled
+      // major-towns list so the dropdown is never empty. Don't cache it: the
+      // next visit should retry live in case the network is better then.
+      cities = CITIES_SEED[country] || null;
+      if (!cities) throw e;
+      return cities;
     }
-    pops.sort((a, b) => b[0] - a[0] || a[1].localeCompare(b[1]));
-    const cities = pops.slice(0, 400).map(x => x[1]);
+    if (!cities.length) throw new Error("No towns found for '" + country + "'.");
     try { localStorage.setItem(cacheKey, JSON.stringify({ at: Date.now(), cities: cities })); } catch (e) {}
     return cities;
   }
@@ -509,6 +525,7 @@ def build() -> None:
     html = html.replace("<body>", "<body>" + BANNER, 1)
     idx = html.rindex("<script>")
     shim = SHIM.replace("__CATALOGUE__", json.dumps(CATALOGUE, ensure_ascii=False))
+    shim = shim.replace("__SEED__", json.dumps(CITIES_SEED, ensure_ascii=False))
     html = html[:idx] + shim + "\n" + html[idx:]
 
     OUT.write_text(html, encoding="utf-8")
