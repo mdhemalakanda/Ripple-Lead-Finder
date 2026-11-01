@@ -1,0 +1,1372 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ripple Lead Finder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: light;
+    --bg:#f7f5f1; --card:#fffdf9; --line:#e7e2d8; --line2:#ddd6c8;
+    --ink:#23221e; --ink2:#5d5b53; --mut:#8f8c81; --faint:#b3b0a4;
+    --acc:#c96a4a; --acc-dark:#b25a3c; --acc-soft:#fbf1ec;
+    --ok-bg:#eaf2ea; --ok-fg:#3c6845; --warn-bg:#f9efe0; --warn-fg:#93601f;
+    --info-bg:#ecf1f6; --info-fg:#3a5876; --err-bg:#f8ecea; --err-fg:#8c3f34;
+    --soc-bg:#f0edf5; --soc-fg:#5c4d84;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter","Segoe UI",sans-serif;
+    font-size:14px; line-height:1.55; -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility; }
+  .wrap { padding:26px 28px 60px; max-width:1480px; margin:0 auto; }
+
+  h1 { font-weight:700; font-size:25px; letter-spacing:-.022em; margin:0 0 3px; }
+
+  ::selection { background:#f0d9cf; }
+  select, input[type=text], input[type=number], input[type=password], textarea, button { transition:border-color .15s, box-shadow .15s, background .15s; }
+  select { -webkit-appearance:none; appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238f8c81' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 11px center; padding-right:30px; }
+  select:focus, input:focus, textarea:focus { outline:none; border-color:var(--acc);
+    box-shadow:0 0 0 3.5px rgba(201,106,74,.14); }
+
+  .footer { margin-top:44px; padding-top:16px; border-top:1px solid var(--line);
+    display:flex; justify-content:flex-end; }
+  .footer span { font-size:11.5px; color:var(--faint); letter-spacing:.01em; }
+
+  .icn { width:15px; height:15px; flex-shrink:0; stroke:var(--mut); fill:none;
+    stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
+  .sub { color:var(--mut); font-size:12.5px; margin-bottom:20px; }
+  .topbar { display:flex; justify-content:space-between; align-items:flex-start; gap:14px; }
+
+  .searchbar { background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:16px 18px; margin-bottom:16px; display:flex; gap:12px; flex-wrap:wrap;
+    align-items:flex-end; box-shadow:0 1px 3px rgba(35,34,30,.04); }
+  .fld { display:flex; flex-direction:column; gap:5px; }
+  .fld label { font-size:10px; text-transform:uppercase; letter-spacing:.09em;
+    color:var(--mut); font-weight:600; }
+  select, input[type=text], input[type=number], input[type=password] {
+    padding:9px 11px; border:1px solid var(--line2); border-radius:9px; font-size:13.5px;
+    background:#fff; font-family:inherit; color:var(--ink); }
+  select:focus, input:focus { outline:2px solid #e9c4b5; outline-offset:0; border-color:var(--acc); }
+  input#city { min-width:190px; }
+  select#country { min-width:210px; }
+
+  /* searchable combobox (country picker) */
+  .sbox { position:relative; min-width:210px; }
+  .sbox > input { width:100%; box-sizing:border-box; padding:9px 26px 9px 11px;
+    border:1px solid var(--line2); border-radius:9px; font-size:13.5px;
+    background:#fff; font-family:inherit; color:var(--ink); }
+  .sbox > input:focus { outline:2px solid #e9c4b5; outline-offset:0; border-color:var(--acc); }
+  .slist { display:none; position:absolute; top:calc(100% + 4px); left:0; right:0;
+    max-height:280px; overflow-y:auto; background:#fff; border:1px solid var(--line2);
+    border-radius:10px; z-index:60; box-shadow:0 8px 22px rgba(35,34,30,.12); }
+  .sitem { padding:8px 12px; cursor:pointer; font-size:13.5px; color:var(--ink); }
+  .sitem:hover, .sitem.on { background:#f6efe6; }
+  .sitem.on { font-weight:600; }
+  .sempty { padding:9px 12px; font-size:12.5px; color:var(--mut); }
+
+  .btn { padding:10px 19px; border-radius:9px; border:none; cursor:pointer;
+    font-size:13.5px; font-weight:600; background:var(--acc); color:#fff;
+    font-family:inherit; transition:background .15s; }
+  .btn:hover { background:var(--acc-dark); }
+  .btn:disabled { opacity:.55; cursor:default; }
+  .btn.ghost { background:#fff; color:var(--ink2); border:1px solid var(--line2); font-weight:500; }
+  .btn.ghost:hover { background:var(--bg); }
+  .btn.sm { padding:7px 13px; font-size:12.5px; }
+
+  .msgline { padding:11px 15px; border-radius:10px; font-size:12.5px;
+    margin-bottom:14px; line-height:1.55; display:none; }
+  .msgline.info { background:var(--info-bg); color:var(--info-fg); display:block; }
+  .msgline.err  { background:var(--err-bg); color:var(--err-fg); display:block; }
+  .msgline.ok   { background:var(--ok-bg); color:var(--ok-fg); display:block; }
+
+  .stats { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+  .stat { background:var(--card); border:1px solid var(--line); border-radius:11px;
+    padding:10px 17px; min-width:86px; }
+  .stat b { display:block; font-size:19px; font-weight:700; font-variant-numeric:tabular-nums; }
+  .stat span { font-size:9.5px; color:var(--mut); text-transform:uppercase; letter-spacing:.08em; font-weight:600; }
+
+  .filters { display:flex; gap:9px; flex-wrap:wrap; align-items:center; margin-bottom:14px; }
+
+  .layout { display:flex; gap:18px; align-items:flex-start; }
+  .list { flex:1; min-width:0; }
+  .detail { width:430px; flex-shrink:0; background:var(--card); border:1px solid var(--line);
+    border-radius:14px; padding:20px; position:sticky; top:14px; max-height:90vh;
+    overflow-y:auto; box-shadow:0 1px 3px rgba(35,34,30,.04); }
+  @media (max-width:1020px){ .layout{flex-direction:column} .detail{width:100%;position:static} }
+
+  .lead { background:var(--card); border:1px solid var(--line); border-radius:12px;
+    padding:13px 15px; margin-bottom:9px; cursor:pointer; transition:border-color .12s; }
+  .lead:hover { border-color:var(--acc); }
+  .lead.sel { border-color:var(--acc); background:var(--acc-soft); }
+  .lead-top { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
+  .lead-name { font-weight:600; font-size:14.5px; letter-spacing:-.005em; }
+  .lead-meta { color:var(--mut); font-size:12px; margin-top:1px; }
+  .lead-reason { color:#a08a6e; font-size:11.5px; margin-top:5px; font-style:italic; }
+  .chips { display:flex; gap:5px; flex-wrap:wrap; margin-top:8px; align-items:center; }
+  .chip { font-size:10px; padding:2.5px 9px; border-radius:20px; font-weight:600;
+    background:var(--ok-bg); color:var(--ok-fg); letter-spacing:.02em; }
+  .chip.warn { background:var(--warn-bg); color:var(--warn-fg); }
+  .chip.flag { background:var(--soc-bg); color:var(--soc-fg); }
+  .chip.score { background:#f3eee2; color:#82683a; }
+  .pill { font-size:10px; padding:3.5px 10px; border-radius:20px; background:#efede6;
+    color:var(--ink2); font-weight:600; white-space:nowrap; letter-spacing:.02em; }
+  .pill.Contacted{background:#e4edf6;color:#38618c} .pill.Replied{background:#faf1d7;color:#8a6c13}
+  .pill.Won{background:#e0f0e3;color:#2d6b39} .pill.Lost{background:#f6e7e7;color:#8c3a3a}
+
+  .d-name { font-size:18px; font-weight:700; letter-spacing:-.018em; }
+  .d-meta { color:var(--mut); font-size:12px; margin-bottom:11px; }
+  .d-why { font-size:12px; color:var(--ink2); background:var(--bg); border-radius:9px;
+    padding:10px 12px; line-height:1.5; }
+  .d-owner { font-size:12.5px; background:var(--acc-soft); color:var(--acc-dark);
+    border-radius:9px; padding:8px 12px; margin-top:8px; font-weight:600; }
+  .d-section { margin-top:17px; }
+  .d-label { font-size:10px; text-transform:uppercase; letter-spacing:.09em;
+    color:var(--mut); margin-bottom:7px; font-weight:600; }
+  .crow { display:flex; gap:8px; align-items:center; margin-bottom:6px; font-size:13px; }
+  .crow a { color:#3d6f9e; text-decoration:none; word-break:break-all; }
+  .crow a:hover { text-decoration:underline; }
+  .missing { color:var(--faint); font-style:italic; font-size:12px; }
+
+  .mtabs { display:flex; gap:5px; margin-bottom:9px; flex-wrap:wrap; }
+  .mtab { font-size:11.5px; padding:6px 12px; border-radius:8px; cursor:pointer;
+    border:1px solid var(--line2); background:#fff; color:var(--ink2); font-weight:600; }
+  .mtab.on { background:var(--acc); border-color:var(--acc); color:#fff; }
+  .mbox { background:var(--bg); border:1px solid var(--line); border-radius:10px; padding:13px;
+    font-size:13px; line-height:1.6; white-space:pre-wrap; max-height:300px; overflow-y:auto; }
+  .row { display:flex; gap:7px; margin-top:10px; flex-wrap:wrap; }
+  .stagebtns { display:flex; gap:5px; flex-wrap:wrap; }
+  .stagebtns button { font-size:11.5px; padding:6px 12px; border-radius:8px;
+    border:1px solid var(--line2); background:#fff; cursor:pointer; color:var(--ink2);
+    font-weight:600; font-family:inherit; }
+  .stagebtns button.on { background:var(--ink); color:#fff; border-color:var(--ink); }
+  textarea { width:100%; border:1px solid var(--line2); border-radius:9px; padding:9px;
+    font-size:12.5px; font-family:inherit; resize:vertical; min-height:58px; color:var(--ink); }
+  .ph { color:var(--faint); font-size:13px; text-align:center; padding:48px 14px; line-height:1.7; }
+  .spin { display:inline-block; width:13px; height:13px; border:2px solid #fff;
+    border-top-color:transparent; border-radius:50%; animation:s .7s linear infinite; vertical-align:-2px; }
+  @keyframes s { to { transform:rotate(360deg) } }
+
+  .settings-btn { padding:8px 15px; border-radius:9px; border:1px solid var(--line2);
+    background:#fff; cursor:pointer; font-size:12.5px; font-weight:600; color:var(--ink2);
+    font-family:inherit; }
+  .settings-btn:hover { background:var(--bg); }
+
+  /* ── floating progress panel (right corner) ─────────────────────────────── */
+  .prog { position:fixed; right:18px; bottom:18px; z-index:15; width:230px;
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    box-shadow:0 6px 24px rgba(35,34,30,.13); overflow:hidden;
+    font-variant-numeric:tabular-nums; }
+  .prog-head { display:flex; justify-content:space-between; align-items:center;
+    padding:11px 14px; cursor:pointer; background:var(--acc-soft); }
+  .prog-head b { font-size:12.5px; font-weight:650; color:var(--acc-dark); }
+  .prog-head span { font-size:11px; color:var(--acc-dark); }
+  .prog-body { padding:11px 14px 13px; }
+  .prog.min .prog-body { display:none; }
+  .prow { display:flex; justify-content:space-between; font-size:12.5px; padding:3.5px 0; }
+  .prow span { color:var(--ink2); }
+  .prow b { font-weight:650; }
+  .prow.total { border-top:1px solid var(--line); margin-top:6px; padding-top:8px; }
+  .pbar { height:6px; background:#efede6; border-radius:4px; margin-top:9px; overflow:hidden; }
+  .pbar i { display:block; height:100%; background:var(--acc); border-radius:4px; transition:width .3s; }
+  .prog-note { font-size:10.5px; color:var(--mut); margin-top:7px; line-height:1.45; }
+
+  .modal-backdrop { display:none; position:fixed; inset:0; background:rgba(30,28,24,.32);
+    backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+    align-items:center; justify-content:center; z-index:30; }
+  .modal-backdrop.open { display:flex; }
+  .modal { background:var(--card); border-radius:18px; padding:26px; width:460px;
+    max-width:93vw; max-height:88vh; overflow-y:auto;
+    box-shadow:0 24px 60px rgba(35,34,30,.22); border:1px solid var(--line); }
+  .modal h3 { margin:0 0 3px; font-size:17px; font-weight:700; letter-spacing:-.015em; }
+  .modal .note { font-size:12px; color:var(--mut); margin-bottom:14px; line-height:1.5; }
+  .modal label { display:block; font-size:10px; text-transform:uppercase; letter-spacing:.08em;
+    color:var(--mut); font-weight:600; margin:13px 0 5px; }
+  .modal input, .modal select { width:100%; }
+  .modal .hint { font-size:11px; color:var(--mut); margin-top:5px; line-height:1.45; }
+  .keybadge { display:inline-block; font-size:10.5px; padding:2px 9px; border-radius:20px;
+    background:var(--ok-bg); color:var(--ok-fg); margin-left:6px; font-weight:650; }
+  .keybadge.off { background:#efede6; color:var(--mut); }
+  .modal-actions { display:flex; justify-content:flex-end; gap:9px; margin-top:20px; }
+  .provider-row { display:flex; gap:8px; }
+  .provider-row .opt { flex:1; border:1px solid var(--line2); border-radius:10px;
+    padding:10px 12px; cursor:pointer; text-align:center; font-size:13px; font-weight:600;
+    color:var(--ink2); background:#fff; }
+  .provider-row .opt.on { border-color:var(--acc); background:var(--acc-soft); color:var(--acc-dark); }
+</style>
+</head>
+<body>
+<div style="background:#2f4a3c;color:#eaf4ee;padding:9px 18px;font-size:12.5px;text-align:center;font-family:inherit">
+  <b>Static demo</b> — sample data only. The real app searches OpenStreetMap live and runs
+  locally: <a href="https://github.com/RippleCheck/Ripple-Lead-Finder" style="color:#bfe3cf">get it here</a>.
+</div>
+
+<div class="wrap">
+  <div class="topbar">
+    <div>
+      <h1>Ripple Lead Finder</h1>
+      <div class="sub">Live worldwide search for businesses with no website — powered by OpenStreetMap + Photon, filtered to skip closed shops.</div>
+    </div>
+    <div class="row" style="gap:8px;margin-top:0">
+      <button class="settings-btn" onclick="openManual()">Manual link</button>
+      <button class="settings-btn" onclick="openSettings()">Settings</button>
+    </div>
+  </div>
+
+  <div class="searchbar">
+    <div class="fld">
+      <label>Industry</label>
+      <select id="niche"></select>
+    </div>
+    <div class="fld">
+      <label>Country</label>
+      <select id="country"></select>
+    </div>
+    <div class="fld">
+      <label>Town / city</label>
+      <select id="citySel" onchange="citySelChanged()" style="min-width:190px">
+        <option value="">Loading towns…</option>
+      </select>
+    </div>
+    <div class="fld" id="cityTypeFld" style="display:none">
+      <label>Type town name</label>
+      <input type="text" id="city" placeholder="e.g. Leeds">
+    </div>
+    <div class="fld">
+      <label>Find</label>
+      <select id="mode">
+        <option value="no_website">No website at all</option>
+        <option value="bad_website">Has a dead / bad website</option>
+        <option value="all">Both</option>
+      </select>
+    </div>
+    <div class="fld">
+      <label>Max</label>
+      <input type="number" id="limit" value="60" min="10" max="300" style="width:78px">
+    </div>
+    <div class="fld">
+      <label>Quality</label>
+      <select id="strict">
+        <option value="1">Strict &mdash; active only</option>
+        <option value="0">Wide &mdash; everything</option>
+      </select>
+    </div>
+    <button class="btn" id="goBtn" onclick="doSearch()">Find Businesses</button>
+  </div>
+
+  <div class="msgline" id="msg"></div>
+  <div class="stats" id="stats"></div>
+
+  <div class="filters">
+    <select id="fNiche" onchange="loadLeads()"><option value="">All industries</option></select>
+    <select id="fCountry" onchange="loadLeads()"><option value="">All countries</option></select>
+    <select id="fCity" onchange="loadLeads()"><option value="">All towns</option></select>
+    <select id="fStage" onchange="loadLeads()">
+      <option value="">All stages</option><option>New</option><option>Contacted</option>
+      <option>Replied</option><option>Won</option><option>Lost</option>
+    </select>
+    <select id="fContact" onchange="renderList()">
+      <option value="">Any contact channel</option>
+      <option value="phone">Has phone</option>
+      <option value="email">Has email</option>
+      <option value="instagram">Has Instagram</option>
+      <option value="facebook">Has Facebook</option>
+      <option value="liveSocial">Verified live social ✓</option>
+      <option value="owner">Owner known</option>
+    </select>
+    <label style="display:flex;align-items:center;gap:5px;font-size:12.5px;color:var(--ink2);cursor:pointer">
+      <input type="checkbox" id="fStarOnly" onchange="renderList()"> ★ Shortlist only
+    </label>
+    <label style="display:flex;align-items:center;gap:5px;font-size:12.5px;color:var(--ink2);cursor:pointer">
+      <input type="checkbox" id="fFresh" onchange="renderList()"> Fresh data only
+    </label>
+    <input type="text" id="fq" placeholder="Search saved leads..." oninput="debouncedLoad()">
+    <button class="btn ghost sm" id="viewBtn" onclick="toggleView()">Board view</button>
+    <button class="btn ghost sm" onclick="clearFilters()">Show all leads</button>
+    <button class="btn ghost sm" onclick="exportCsv()">Export CSV</button>
+  </div>
+
+  <div id="board" style="display:none"></div>
+
+  <div class="layout" id="layout">
+    <div class="list" id="list"><div class="ph">No leads saved yet.<br>Pick an industry, country and city above, then hit Find Businesses.</div></div>
+    <div class="detail" id="detail"><div class="ph">Select a business to see its contact details and a ready-to-send message.</div></div>
+  </div>
+
+  <div class="footer">
+    <span>Ripple Lead Finder · Developed by Agrajeet Verma · © 2026 · MIT License</span>
+  </div>
+</div>
+
+<!-- floating outreach progress panel -->
+<div class="prog" id="prog">
+  <div class="prog-head" onclick="toggleProg()">
+    <b>My outreach</b><span id="progToggle">—</span>
+  </div>
+  <div class="prog-body" id="progBody"></div>
+</div>
+
+<!-- business brief -->
+<div class="modal-backdrop" id="briefBackdrop">
+  <div class="modal" style="width:560px">
+    <h3 id="briefTitle">Business brief</h3>
+    <div class="note">Copy this and paste it into any AI to build their website. Generated from the map data + their current site (if any).</div>
+    <div class="mbox" id="briefBox" style="max-height:52vh">Generating…</div>
+    <div class="modal-actions">
+      <button class="btn ghost sm" onclick="document.getElementById('briefBackdrop').classList.remove('open')">Close</button>
+      <button class="btn sm" onclick="copyBrief(this)">Copy brief</button>
+    </div>
+  </div>
+</div>
+
+<!-- manual link builder -->
+<div class="modal-backdrop" id="manualBackdrop">
+  <div class="modal" style="width:520px">
+    <h3>Build a link by hand</h3>
+    <div class="note">For a business you found somewhere else &mdash; type the details in and get the same encrypted Foundry links a lead would produce.</div>
+
+    <label>Business name</label>
+    <input type="text" id="m_biz" placeholder="Modern Beauty Salon" oninput="buildManual()">
+
+    <label>Trade</label>
+    <select id="m_trade" onchange="buildManual()"></select>
+
+    <label>City</label>
+    <input type="text" id="m_city" placeholder="Delhi" oninput="buildManual()">
+
+    <label>Phone</label>
+    <input type="text" id="m_phone" placeholder="+91-904-502-1076" oninput="buildManual()">
+
+    <div class="d-label" style="margin-top:18px">Website demo</div>
+    <div class="mbox" id="m_demo" style="font-size:11px;word-break:break-all;min-height:0">&mdash;</div>
+    <div class="row" style="margin-top:6px">
+      <button class="btn sm" onclick="copyManual(this,'m_demo')">Copy website link</button>
+      <button class="btn ghost sm" onclick="openManualLink('m_demo')">Open</button>
+    </div>
+
+    <div class="d-label" style="margin-top:14px">Dashboard demo</div>
+    <div class="mbox" id="m_app" style="font-size:11px;word-break:break-all;min-height:0">&mdash;</div>
+    <div class="row" style="margin-top:6px">
+      <button class="btn sm" onclick="copyManual(this,'m_app')">Copy dashboard link</button>
+      <button class="btn ghost sm" onclick="openManualLink('m_app')">Open</button>
+    </div>
+
+    <div class="row" style="margin-top:14px">
+      <button class="btn ghost sm" onclick="copyManualBoth(this)">Copy both</button>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn ghost sm" onclick="document.getElementById('manualBackdrop').classList.remove('open')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- settings -->
+<div class="modal-backdrop" id="settingsBackdrop">
+  <div class="modal">
+    <h3>Settings</h3>
+    <div class="note">Everything runs locally — nothing leaves your machine except the AI call, if you turn one on.</div>
+
+    <label>Your name (signs every message)</label>
+    <input type="text" id="s_name" placeholder="Agrajeet">
+
+    <label>Portfolio link (added to cold emails)</label>
+    <input type="text" id="s_portfolio" placeholder="https://your-portfolio-link.com">
+
+    <label>Your agency name (shown on the Foundry demo)</label>
+    <input type="text" id="s_agency" placeholder="Matrix Devs">
+
+    <label>Turnaround you promise</label>
+    <input type="text" id="s_turnaround" placeholder="5 days">
+
+    <label>Your email (optional)</label>
+    <input type="text" id="s_email" placeholder="you@example.com">
+
+    <label>AI rewrite provider</label>
+    <div class="provider-row">
+      <div class="opt" id="prov_openai" onclick="setProvider('openai')">OpenAI</div>
+      <div class="opt" id="prov_anthropic" onclick="setProvider('anthropic')">Anthropic</div>
+      <div class="opt" id="prov_grok" onclick="setProvider('grok')">Grok</div>
+      <div class="opt" id="prov_none" onclick="setProvider('none')">None</div>
+    </div>
+    <div class="hint">Optional either way — template messages work with no key at all. A key just makes every message uniquely worded.</div>
+
+    <div id="openaiFields">
+      <label>OpenAI API key <span class="keybadge off" id="oaBadge">not set</span></label>
+      <input type="password" id="s_oakey" placeholder="sk-...">
+      <label>OpenAI model</label>
+      <input type="text" id="s_oamodel" placeholder="gpt-4o-mini">
+    </div>
+    <div id="anthropicFields">
+      <label>Anthropic API key <span class="keybadge off" id="anBadge">not set</span></label>
+      <input type="password" id="s_ankey" placeholder="sk-ant-...">
+      <label>Anthropic model</label>
+      <input type="text" id="s_anmodel" placeholder="claude-sonnet-5">
+    </div>
+    <div id="grokFields">
+      <label>Grok (xAI) API key <span class="keybadge off" id="gkBadge">not set</span></label>
+      <input type="password" id="s_gkkey" placeholder="xai-...">
+      <label>Grok model</label>
+      <input type="text" id="s_gkmodel" placeholder="grok-2-latest">
+    </div>
+
+    <label>Message language (templates)</label>
+    <select id="s_lang">
+      <option value="en">English</option>
+      <option value="hi">Hindi</option>
+      <option value="hinglish">Hinglish</option>
+      <option value="es">Spanish</option>
+    </select>
+    <div class="hint">Applies to the social DM. Cold email and call scripts stay in English.</div>
+
+    <label style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:13px;opacity:1">
+      <input type="checkbox" id="s_insta" style="width:auto"> Check Instagram activity <span id="instaAvail" style="font-size:11px;opacity:.6"></span>
+    </label>
+    <div class="hint"><b>Off by default, and that is the right default.</b> Instagram's terms prohibit automated access, and anonymous lookups get rate-limited within a handful of requests. Capped at 12 checks per run with a 3s gap. A blocked check is reported as "unknown", never as "inactive".</div>
+    <div class="hint">Leaving a key field blank keeps the previously saved key.</div>
+
+    <div class="modal-actions">
+      <button class="btn ghost sm" onclick="closeSettings()">Cancel</button>
+      <button class="btn sm" onclick="saveSettings()">Save</button>
+    </div>
+  </div>
+</div>
+
+
+<script>
+// ── DEMO SHIM: answers every /api/* call with deterministic sample data so the
+// dashboard runs unmodified on GitHub Pages. No network requests leave the page.
+(function () {
+  const realFetch = window.fetch.bind(window);
+
+  const NICHES = ["Car Wash", "Barber Shop", "Dental Clinic", "Estate Agent", "Cafe",
+    "Gym", "Restaurant", "Plumber", "Electrician", "Hair Salon", "Auto Repair",
+    "Bakery", "Florist", "Photographer", "Dog Groomer", "Yoga Studio"];
+
+  const CITIES = ["London", "Manchester", "Birmingham", "Leeds", "Glasgow", "Liverpool",
+    "Bristol", "Sheffield", "Edinburgh", "Cardiff", "New York", "Los Angeles", "Chicago",
+    "Houston", "Phoenix", "Philadelphia", "San Antonio", "San Diego", "Dallas", "Austin"];
+
+  const FIRST = ["Sunrise", "Golden", "Riverside", "Central", "Elite", "Fresh", "Prime",
+    "Silver", "Crown", "Metro", "Harbour", "Maple", "Oakwood", "Bluebird", "Star"];
+  const SECOND = ["& Co", "Hub", "Point", "Centre", "Studio", "House", "Works", "Room",
+    "Group", "Express", "Lounge", "Bar"];
+
+  const mod = (i, m, s) => (i * 7919 + s * 104729) % m;
+
+  function mkLeads(niche, place, count, startId) {
+    const parts = (place || "London, United Kingdom").split(",");
+    const city = parts[0].trim();
+    const country = (parts[1] || "United Kingdom").trim();
+    const out = [];
+    for (let i = 0; i < count; i++) {
+      const noSite = i % 3 !== 0;
+      const n = mod(i, 900, 3);
+      out.push({
+        id: startId + i,
+        name: FIRST[mod(i, FIRST.length, 1)] + " " + niche + " " + SECOND[mod(i, SECOND.length, 2)],
+        niche: niche, city: city, country: country,
+        address: (mod(i, 90, 4) + 10) + " High Street, " + city,
+        phone: noSite || i % 2 ? "+44 7" + String(100000000 + n * 977).slice(0, 9) : "",
+        phone_e164: noSite || i % 2 ? "+447" + String(100000000 + n * 977).slice(0, 9) : "",
+        email: i % 2 === 0 ? "info@" + FIRST[mod(i, FIRST.length, 1)].toLowerCase().replace(/\s/g, "") + n + ".example.com" : "",
+        website: noSite ? "" : "http://old-site-" + n + ".example.com",
+        socials: {}, links_ok: {},
+        opening_hours: "", lat: null, lon: null, osm_url: "",
+        reason: noSite ? "No website tag on OpenStreetMap" : "Website unreachable",
+        score: 55 + mod(i, 40, 6),
+        reachability: "", owner: "", verified_date: "2026-10-28",
+        whatsapp: false, activity: "", segment: "",
+        stage: ["New", "New", "Contacted", "New", "Replied"][i % 5],
+        starred: i === 1, notes: "",
+        found_at: "2026-10-28"
+      });
+    }
+    return out;
+  }
+
+  // the demo "database"
+  let DB = mkLeads("Car Wash", "Los Angeles, United States", 8, 1);
+  let nextId = 1000;
+
+  const J = (obj) => new Response(JSON.stringify(obj), { headers: { "Content-Type": "application/json" } });
+
+  function facets() {
+    const uniq = (k) => Array.from(new Set(DB.map(l => l[k]).filter(Boolean))).sort();
+    return { niches: uniq("niche"), countries: uniq("country"), cities: uniq("city") };
+  }
+
+  function leadList(params) {
+    let rows = DB.slice();
+    const eq = (k, v) => { if (v) rows = rows.filter(l => l[k] === v); };
+    eq("niche", params.get("niche")); eq("country", params.get("country"));
+    eq("city", params.get("city")); eq("stage", params.get("stage"));
+    if (params.get("starred")) rows = rows.filter(l => l.starred);
+    const q = params.get("q");
+    if (q) rows = rows.filter(l => (l.name + " " + l.city).toLowerCase().includes(q.toLowerCase()));
+    rows.sort((a, b) => (b.starred - a.starred) || (b.score - a.score) || a.name.localeCompare(b.name));
+    const stages = {};
+    rows.forEach(l => { stages[l.stage] = (stages[l.stage] || 0) + 1; });
+    return {
+      leads: rows, stages: stages,
+      starred_total: rows.filter(l => l.starred).length,
+      total_all: DB.length, facets: facets()
+    };
+  }
+
+  window.fetch = async function (input, init) {
+    const url = typeof input === "string" ? input : (input && input.url) || "";
+    const method = ((init && init.method) || (input && input.method) || "GET").toUpperCase();
+    let body = {};
+    try { body = init && init.body ? JSON.parse(init.body) : {}; } catch (e) {}
+    const u = new URL(url, location.origin);
+    const p = u.pathname;
+
+    if (!p.startsWith("/api/")) return realFetch(input, init);
+
+    // small delay so spinners and progress messages behave like the real app
+    await new Promise(r => setTimeout(r, p === "/api/search" ? 1200 : 120));
+
+    if (p === "/api/niches") return J({ has_openai: false, lang: "en", niches: NICHES, segments: {} });
+    if (p === "/api/cities") return J({ cities: CITIES, source: "demo" });
+    if (p === "/api/health") return J({ ok: true });
+    if (p === "/api/settings") return J({});
+    if (p === "/api/brief")
+      return J({ brief: "Demo mode — the real app builds this brief from live map data and the business's current website.", source: "demo" });
+    if (p === "/api/message")
+      return J({ message: "Demo mode — the real app writes a personalised outreach message for this business.", source: "demo" });
+    if (p === "/api/manual-link")
+      return J({ error: "Demo mode — manual link building needs the local app." });
+
+    if (p === "/api/search") {
+      const niche = body.niche || "Car Wash";
+      const place = body.place || "London, United Kingdom";
+      const leads = mkLeads(niche, place, 7, nextId);
+      leads.forEach(l => { if (!DB.some(x => x.name === l.name && x.city === l.city)) DB.push(l); });
+      nextId += 100;
+      const parts = place.split(",");
+      return J({
+        place: place,
+        scanned: 40 + mod(place.length, 120, 5),
+        found: leads.length, new_leads: leads.length, duplicates: 0,
+        filter_niche: niche,
+        filter_city: parts[0].trim(),
+        filter_country: (parts[1] || "").trim(),
+        whatsapp_count: 2, note: "Demo mode — these are sample businesses, not live map results.",
+        leads: leads
+      });
+    }
+
+    if (p === "/api/leads") return J(leadList(u.searchParams));
+
+    const m = p.match(/^\/api\/lead\/(\d+)$/);
+    if (m) {
+      const id = +m[1];
+      const lead = DB.find(l => l.id === id);
+      if (!lead) return J({ error: "Lead not found" }), new Response(null, { status: 404 });
+      if (method === "DELETE") { DB = DB.filter(l => l.id !== id); return J({ ok: true }); }
+      ["stage", "notes", "phone", "email", "starred"].forEach(k => {
+        if (body[k] !== undefined) lead[k] = body[k];
+      });
+      return J({ ok: true });
+    }
+
+    if (p === "/api/export.csv") {
+      const head = "name,niche,city,country,phone,email,website,score,stage";
+      const lines = DB.map(l => [l.name, l.niche, l.city, l.country, l.phone, l.email, l.website, l.score, l.stage]
+        .map(v => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"').join(","));
+      return new Response([head].concat(lines).join("\n"), { headers: { "Content-Type": "text/csv" } });
+    }
+
+    return J({});
+  };
+})();
+</script>
+
+<script>
+let LEADS = [], selId = null, msgMode = "fb", hasAI = false, provider = "openai", LANG = "en";
+let STAGES_ALL = {};
+
+// Every OSM-covered country — India intentionally absent (also blocked server-side).
+const COUNTRIES = ["United Kingdom","United States","India","Australia","Canada","Ireland","New Zealand",
+"Germany","France","Spain","Italy","Netherlands","Belgium","Portugal","Austria","Switzerland",
+"Sweden","Norway","Denmark","Finland","Iceland","Poland","Czechia","Slovakia","Hungary","Romania",
+"Bulgaria","Greece","Croatia","Slovenia","Serbia","Bosnia and Herzegovina","North Macedonia",
+"Albania","Montenegro","Estonia","Latvia","Lithuania","Ukraine","Moldova","Georgia","Armenia",
+"Azerbaijan","Turkey","Cyprus","Malta","Luxembourg","Monaco","Andorra","United Arab Emirates",
+"Saudi Arabia","Qatar","Kuwait","Bahrain","Oman","Jordan","Lebanon","Israel","Egypt","Morocco",
+"Tunisia","Algeria","South Africa","Kenya","Nigeria","Ghana","Tanzania","Uganda","Ethiopia",
+"Rwanda","Botswana","Namibia","Zambia","Zimbabwe","Mauritius","Seychelles","Japan","South Korea",
+"Singapore","Malaysia","Thailand","Vietnam","Philippines","Indonesia","Taiwan","Hong Kong",
+"Sri Lanka","Nepal","Bangladesh","Pakistan","Kazakhstan","Uzbekistan","Mexico","Brazil",
+"Argentina","Chile","Colombia","Peru","Ecuador","Uruguay","Paraguay","Bolivia","Costa Rica",
+"Panama","Guatemala","Dominican Republic","Jamaica","Trinidad and Tobago","Bahamas","Barbados",
+"Fiji","Papua New Guinea"];
+
+function show(kind, text) {
+  const m = document.getElementById("msg");
+  m.className = "msgline " + kind;
+  m.innerHTML = text;
+}
+
+// ── searchable combobox: wraps a real <select> (kept in the DOM, hidden) with
+// a type-to-filter input, so every existing reader of select.value still works
+function makeSearchable(sel) {
+  const box = document.createElement("div");
+  box.className = "sbox";
+  box.style.minWidth = getComputedStyle(sel).minWidth;
+  const inp = document.createElement("input");
+  inp.type = "text"; inp.autocomplete = "off"; inp.spellcheck = false;
+  inp.placeholder = "Type to search…";
+  const panel = document.createElement("div");
+  panel.className = "slist";
+  box.append(inp, panel);
+  sel.parentNode.insertBefore(box, sel);
+  sel.style.display = "none";
+
+  const current = () => sel.selectedOptions[0] ? sel.selectedOptions[0].text : "";
+
+  function render(filter) {
+    const f = (filter || "").trim().toLowerCase();
+    const items = Array.from(sel.options).map(o => o.text)
+      .filter(t => !f || t.toLowerCase().includes(f));
+    panel.innerHTML = items.map(t =>
+      `<div class="sitem${t === current() ? " on" : ""}">${t}</div>`).join("")
+      || '<div class="sempty">No match — check the spelling</div>';
+    Array.from(panel.querySelectorAll(".sitem")).forEach(el => {
+      el.onmousedown = e => { e.preventDefault(); pick(el.textContent); };
+    });
+  }
+  function pick(text) {
+    const opt = Array.from(sel.options).find(o => o.text === text);
+    if (opt) sel.value = opt.value;
+    inp.value = text;
+    close();
+    if (typeof sel.onchange === "function") sel.onchange();
+  }
+  function open()  { panel.style.display = "block"; }
+  function close() { panel.style.display = "none"; }
+
+  inp.addEventListener("focus", () => {
+    render(inp.value === current() ? "" : inp.value);
+    open();
+    inp.select();
+  });
+  inp.addEventListener("input", () => { render(inp.value); open(); });
+  inp.addEventListener("blur", () => setTimeout(close, 120));
+  sel.addEventListener("change", () => { inp.value = current(); });
+  inp.value = current();
+}
+
+async function boot() {
+  const cSel = document.getElementById("country");
+  cSel.innerHTML =
+    COUNTRIES.map(c => `<option${c==="United Kingdom"?" selected":""}>${c}</option>`).join("");
+  cSel.onchange = loadCities;
+  makeSearchable(cSel);
+  try {
+    const r = await (await fetch("/api/niches")).json();
+    hasAI = r.has_openai;
+    LANG = r.lang || "en";
+    const segs = r.segments || {};
+    document.getElementById("niche").innerHTML = Object.keys(segs).length
+      ? Object.keys(segs).sort().map(function(s){
+          return '<optgroup label="'+s+'">' + segs[s].map(function(n){
+            return '<option'+(n==="Barber Shop"?' selected':'')+'>'+n+'</option>'; }).join("") + '</optgroup>';
+        }).join("")
+      : r.niches.map(n => `<option${n==="Barber Shop"?" selected":""}>${n}</option>`).join("");
+  } catch (e) {
+    show("err", "Can't reach the local server. Make sure the app is still running (start.command / start.bat).");
+  }
+  // every searchbar field gets the same type-to-search behaviour as country
+  ["niche", "mode", "strict"].forEach(id => makeSearchable(document.getElementById(id)));
+  makeSearchable(document.getElementById("citySel"));
+  loadCities();
+  loadLeads();
+}
+
+// ── town dropdown: real towns per country, no memorising names ─────────────────
+const cityCache = {};
+async function loadCities() {
+  const country = document.getElementById("country").value;
+  const sel = document.getElementById("citySel");
+  document.getElementById("cityTypeFld").style.display = "none";
+  if (cityCache[country]) { fillCities(cityCache[country]); return; }
+  sel.innerHTML = '<option value="">Loading towns…</option>';
+  try {
+    const d = await (await fetch("/api/cities?country=" + encodeURIComponent(country))).json();
+    if (d.error) throw new Error(d.error);
+    cityCache[country] = d.cities || [];
+    fillCities(cityCache[country]);
+  } catch (e) {
+    sel.innerHTML = '<option value="__type__">Type a town name…</option>';
+    sel.dispatchEvent(new Event("change"));
+    show("info", "Couldn't load the town list for that country right now — just type the town instead.");
+  }
+}
+function fillCities(cities) {
+  const sel = document.getElementById("citySel");
+  if (!cities.length) {
+    sel.innerHTML = '<option value="__type__">Type a town name…</option>';
+    sel.dispatchEvent(new Event("change"));
+    return;
+  }
+  sel.innerHTML = cities.map(c => `<option>${c.replace(/</g,"&lt;")}</option>`).join("") +
+    '<option value="__type__">Other — type a name…</option>';
+  sel.dispatchEvent(new Event("change"));
+}
+function citySelChanged() {
+  const v = document.getElementById("citySel").value;
+  document.getElementById("cityTypeFld").style.display = v === "__type__" ? "" : "none";
+}
+function currentCity() {
+  const v = document.getElementById("citySel").value;
+  if (v && v !== "__type__") return v;
+  return document.getElementById("city").value.trim();
+}
+
+async function doSearch() {
+  const btn = document.getElementById("goBtn");
+  const city = currentCity();
+  const country = document.getElementById("country").value;
+  if (!city) { show("err", "Pick a town from the list (or type one) first."); return; }
+  const place = city + ", " + country;
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span> Searching...';
+  show("info", `Searching OpenStreetMap for <b>${document.getElementById("niche").value}</b> in <b>${place}</b>. Takes 10–40 seconds. The page stays responsive — you can keep working with your saved leads while it runs.`);
+
+  try {
+    const res = await fetch("/api/search", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        niche: document.getElementById("niche").value,
+        place: place,
+        mode: document.getElementById("mode").value,
+        strict: document.getElementById("strict").value === "1",
+        limit: parseInt(document.getElementById("limit").value) || 60
+      })
+    });
+    const d = await res.json();
+    if (!res.ok) { show("err", d.error || "Search failed."); return; }
+
+    // Scope the list to exactly what was just searched. Without this the list
+    // still shows every lead ever saved, which reads as "the search did nothing"
+    // or worse, "I searched estate agents and got gyms".
+    document.getElementById("fNiche").value = d.filter_niche || "";
+    document.getElementById("fCountry").value = d.filter_country || "";
+    document.getElementById("fCity").value = d.filter_city || "";
+    document.getElementById("fStage").value = "";
+    document.getElementById("fq").value = "";
+    document.getElementById("fContact").value = "";
+    document.getElementById("fStarOnly").checked = false;
+    document.getElementById("fFresh").checked = false;
+
+    show("ok",
+      `Scanned <b>${d.scanned}</b> live businesses in <b>${d.place}</b> — <b>${d.found}</b> qualified (closed shops filtered out). ` +
+      `Added <b>${d.new_leads}</b> new leads` +
+      (d.duplicates ? `, skipped ${d.duplicates} already saved.` : ".") +
+      (d.found ? ` Showing <b>${d.filter_niche} in ${d.filter_city}</b> — hit "Show all leads" to see your whole list.` : "") +
+      (d.found === 0 ? " Try a bigger city, a more common industry, or switch mode to 'Both'." : "") +
+      (d.note ? `<br><br><b>Note:</b> ${d.note}` : "") +
+      (d.whatsapp_count ? ` <b>${d.whatsapp_count}</b> of them are reachable on WhatsApp.` : "")
+    );
+    await loadLeads(d.filter_niche, d.filter_country, d.filter_city);
+  } catch (e) {
+    // distinguish "busy" from "dead" using the health endpoint
+    try {
+      await fetch("/api/health");
+      show("err", "That search hit an error: " + e.message);
+    } catch (_) {
+      show("err", "Lost the local server — restart it with start.command / start.bat, then reload this page.");
+    }
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = "Find Businesses";
+  }
+}
+
+let t = null;
+function debouncedLoad() { clearTimeout(t); t = setTimeout(loadLeads, 300); }
+
+function filterParams() {
+  const p = new URLSearchParams();
+  const n = document.getElementById("fNiche").value;
+  const c = document.getElementById("fCountry").value;
+  const ct = document.getElementById("fCity").value;
+  const s = document.getElementById("fStage").value;
+  const q = document.getElementById("fq").value.trim();
+  if (n) p.set("niche", n);
+  if (c) p.set("country", c);
+  if (ct) p.set("city", ct);
+  if (s) p.set("stage", s);
+  if (q) p.set("q", q);
+  return p;
+}
+
+/* optional args let a just-finished search pass its own scope in, avoiding a
+   race where the <select> options haven't been repopulated yet */
+async function loadLeads(forceNiche, forceCountry, forceCity) {
+  const p = filterParams();
+  if (forceNiche !== undefined) {
+    p.set("niche", forceNiche || "");
+    if (forceCountry) p.set("country", forceCountry); else p.delete("country");
+    if (forceCity) p.set("city", forceCity); else p.delete("city");
+    if (!forceNiche) p.delete("niche");
+  }
+  try {
+    const d = await (await fetch("/api/leads?" + p)).json();
+    LEADS = d.leads;
+    STAGES_ALL = d.stages;
+    STARRED_TOTAL = d.starred_total || 0;
+    TOTAL_ALL = d.total_all || 0;
+    syncFacets(d.facets);          // repopulate BEFORE restoring values
+    renderStats(d.stages);
+    renderProg();
+    renderList();
+    if (BOARD) renderBoard();
+  } catch (e) {
+    show("err", "Lost connection to the local server.");
+  }
+}
+
+function clearFilters() {
+  ["fNiche","fCountry","fCity","fStage","fContact"].forEach(function(id){
+    document.getElementById(id).value = ""; });
+  document.getElementById("fq").value = "";
+  document.getElementById("fStarOnly").checked = false;
+  document.getElementById("fFresh").checked = false;
+  show("info", "Showing all saved leads.");
+  loadLeads();
+}
+
+function exportCsv() {
+  /* export must match exactly what's on screen, not the whole database */
+  location.href = "/api/export.csv?" + filterParams().toString();
+}
+
+let STARRED_TOTAL = 0, TOTAL_ALL = 0;
+
+// client-side quick filters (contact channel / shortlist / freshness)
+function passesFilters(l) {
+  const soc = l.socials || {}, lk = l.links_ok || {};
+  const c = document.getElementById("fContact").value;
+  if (c === "phone" && !l.phone) return false;
+  if (c === "email" && !l.email) return false;
+  if (c === "instagram" && !soc.instagram) return false;
+  if (c === "facebook" && !soc.facebook) return false;
+  if (c === "owner" && !l.owner) return false;
+  if (c === "liveSocial" && !(lk.instagram === true || lk.facebook === true)) return false;
+  if (document.getElementById("fStarOnly").checked && !l.starred) return false;
+  if (document.getElementById("fFresh").checked && !(l.verified_date && l.verified_date >= "2024-01")) return false;
+  return true;
+}
+
+async function toggleStar(id, ev) {
+  if (ev) ev.stopPropagation();
+  const l = LEADS.find(x => x.id === id);
+  if (!l) return;
+  l.starred = l.starred ? 0 : 1;
+  await fetch("/api/lead/" + id, {method:"PATCH", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({starred: l.starred})});
+  loadLeads();
+  if (selId === id) renderDetail();
+}
+
+function syncFacets(f) {
+  const sets = [
+    ["fNiche", "All industries", f.niches || []],
+    ["fCountry", "All countries", f.countries || []],
+    ["fCity", "All towns", f.cities || []]
+  ];
+  sets.forEach(function(s){
+    const el = document.getElementById(s[0]), keep = el.value;
+    el.innerHTML = '<option value="">' + s[1] + '</option>' +
+      s[2].map(function(x){ return '<option>' + esc(x) + '</option>'; }).join("");
+    /* restore the selection; if that value no longer exists, add it back so
+       the filter never silently resets itself to "all" */
+    if (keep && s[2].indexOf(keep) === -1) el.insertAdjacentHTML("beforeend", '<option>' + esc(keep) + '</option>');
+    el.value = keep;
+  });
+}
+
+function renderStats(stages) {
+  const order = ["New","Contacted","Replied","Won","Lost"];
+  const total = Object.values(stages).reduce((a,b)=>a+b,0);
+  const callable = LEADS.filter(l => l.phone).length;
+  const emailable = LEADS.filter(l => l.email).length;
+  const scoped = total !== TOTAL_ALL;
+  document.getElementById("stats").innerHTML =
+    `<div class="stat"><b>${total}</b><span>${scoped ? "In this view" : "Saved leads"}</span></div>` +
+    `<div class="stat"><b>${callable}</b><span>Can call now</span></div>` +
+    `<div class="stat"><b>${emailable}</b><span>Can email now</span></div>` +
+    order.map(s => `<div class="stat"><b>${stages[s]||0}</b><span>${s}</span></div>`).join("");
+}
+
+// ── floating outreach panel ────────────────────────────────────────────────────
+function renderProg() {
+  const st = STAGES_ALL || {};
+  const total = Object.values(st).reduce((a,b)=>a+b,0);
+  const reached = (st.Contacted||0)+(st.Replied||0)+(st.Won||0)+(st.Lost||0);
+  const replied = (st.Replied||0)+(st.Won||0);
+  const won = st.Won||0;
+  const pct = total ? Math.round(reached/total*100) : 0;
+  const conv = reached ? Math.round(won/reached*100) : 0;
+  document.getElementById("progBody").innerHTML = `
+    <div class="prow"><span>Shortlisted to message</span><b>${STARRED_TOTAL}</b></div>
+    <div class="prow"><span>Reached out</span><b>${reached} / ${total}</b></div>
+    <div class="prow"><span>Got replies</span><b>${replied}</b></div>
+    <div class="prow"><span>Deals won</span><b>${won}</b></div>
+    <div class="prow total"><span>Win rate (of reached)</span><b>${conv}%</b></div>
+    <div class="pbar"><i style="width:${pct}%"></i></div>
+    <div class="prog-note">${pct}% of your saved leads contacted. Star a lead to shortlist it, mark stages to track it here.</div>`;
+  document.getElementById("progToggle").textContent =
+    document.getElementById("prog").classList.contains("min") ? `${reached}/${total} ▲` : "▼";
+}
+function toggleProg() {
+  document.getElementById("prog").classList.toggle("min");
+  renderProg();
+}
+
+function linkChip(soc, lk, kind, label) {
+  if (!soc[kind]) return "";
+  if (lk[kind] === true)  return `<span class="chip flag">${label} ✓ live</span>`;
+  if (lk[kind] === false) return `<span class="chip warn">${label} ✗ broken</span>`;
+  return `<span class="chip flag">${label}</span>`;
+}
+
+function renderList() {
+  const el = document.getElementById("list");
+  const rows = LEADS.filter(passesFilters);
+  if (!rows.length) {
+    el.innerHTML = '<div class="ph">No leads match.<br>Run a search above, or clear your filters.</div>';
+    return;
+  }
+  el.innerHTML = rows.map(l => {
+    const soc = l.socials || {}, lk = l.links_ok || {};
+    const chips = [`<span class="chip score">${l.score} pts</span>`];
+    if (l.phone) chips.push('<span class="chip">Phone</span>');
+    if (l.email) chips.push('<span class="chip">Email</span>');
+    if (l.owner) chips.push('<span class="chip">Owner known</span>');
+    chips.push(linkChip(soc, lk, "facebook", "Facebook"));
+    chips.push(linkChip(soc, lk, "instagram", "Instagram"));
+    if (l.whatsapp) chips.push('<span class="chip">WhatsApp</span>');
+    else if (soc.whatsapp) chips.push('<span class="chip flag">WhatsApp</span>');
+    if (l.activity >= 4) chips.push('<span class="chip">Active</span>');
+    if (l.insta_status === "active") chips.push('<span class="chip">IG active</span>');
+    else if (l.insta_status === "dormant") chips.push('<span class="chip warn">IG dormant</span>');
+    if (l.verified_date && l.verified_date >= "2024-01") chips.push('<span class="chip">Fresh data</span>');
+    if (!l.phone && !l.email && !Object.keys(soc).length)
+      chips.push('<span class="chip warn">Walk in / look up</span>');
+    return `<div class="lead ${l.id===selId?'sel':''}" onclick="pick('${l.id}')">
+      <div class="lead-top">
+        <div><div class="lead-name">${esc(l.name)}</div>
+        <div class="lead-meta">${esc(l.niche)} · ${esc(l.city)}${l.country?", "+esc(l.country):""}</div></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="pill ${l.stage}">${l.stage}</span>
+          <span onclick="toggleStar('${l.id}', event)" title="Shortlist: I'm going to message them"
+            style="cursor:pointer;font-size:17px;line-height:1;color:${l.starred?'#d9a13b':'#c9c5b8'}">${l.starred?'★':'☆'}</span>
+        </div>
+      </div>
+      <div class="lead-reason">${esc(l.reason||"")}</div>
+      <div class="chips">${chips.join("")}${l.maps_verify?`<span class="cpy" onclick="event.stopPropagation();window.open('${esc(l.maps_verify)}','_blank')">verify on maps</span>`:""}</div>
+    </div>`;
+  }).join("");
+}
+
+function esc(s) { return String(s==null?"":s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+// clean line icons (Apple-style) instead of emojis
+const ICONS = {
+  pin:   '<svg class="icn" viewBox="0 0 24 24"><path d="M12 21s-7-6.1-7-11a7 7 0 0 1 14 0c0 4.9-7 11-7 11z"/><circle cx="12" cy="10" r="2.6"/></svg>',
+  phone: '<svg class="icn" viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a12 12 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>',
+  mail:  '<svg class="icn" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3.5 7l8.5 6 8.5-6"/></svg>',
+  globe: '<svg class="icn" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg>',
+  clock: '<svg class="icn" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>',
+  search:'<svg class="icn" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg>',
+  map:   '<svg class="icn" viewBox="0 0 24 24"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg>',
+  link:  '<svg class="icn" viewBox="0 0 24 24"><path d="M10 14a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.2 1.2"/><path d="M14 10a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1.2-1.2"/></svg>',
+  social:'<svg class="icn" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1.1" fill="currentColor" stroke="none"/></svg>',
+  doc:   '<svg class="icn" viewBox="0 0 24 24"><path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5M9.5 13h5M9.5 16.5h5"/></svg>'
+};
+function icn(n) { return ICONS[n] || ICONS.link; }
+
+function pick(id) { selId = id; msgMode = "fb"; renderList(); renderDetail(); getMessage(false); }
+
+function renderDetail() {
+  const l = LEADS.find(x => x.id === selId);
+  if (!l) return;
+  const soc = l.socials || {};
+  const gq = encodeURIComponent(l.name + " " + l.city);
+  const socLabel = { facebook:"Facebook", instagram:"Instagram", twitter:"Twitter/X", whatsapp:"WhatsApp" };
+  const lk = l.links_ok || {};
+  const lkTag = k => lk[k]===true ? ' <span style="color:#3c6845;font-size:11px;font-weight:600">✓ link live</span>'
+               : lk[k]===false ? ' <span style="color:#8c3f34;font-size:11px;font-weight:600">✗ link broken</span>' : '';
+  const socRows = Object.entries(soc).map(([k,v]) =>
+    `<div class="crow">${icn("social")} ${socLabel[k]||k}: <a href="${esc(v)}" target="_blank">open →</a>${lkTag(k)}</div>`).join("");
+
+  document.getElementById("detail").innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+      <div class="d-name">${esc(l.name)}</div>
+      <span onclick="toggleStar('${l.id}')" title="Shortlist: I'm going to message them"
+        style="cursor:pointer;font-size:22px;line-height:1;color:${l.starred?'#d9a13b':'#c9c5b8'}">${l.starred?'★':'☆'}</span>
+    </div>
+    <div class="d-meta">${esc(l.niche)} · ${esc(l.city)}${l.country?", "+esc(l.country):""} · score ${l.score}${l.verified_date ? " · data updated "+esc(l.verified_date) : ""}</div>
+    <div class="d-why">${esc(l.reason||"")}</div>
+    ${l.owner ? `<div class="d-owner">Run by ${esc(l.owner)} — open your call or message with their name.</div>` : ""}
+
+    <div class="d-section">
+      <div class="d-label">Contact</div>
+      ${l.address ? `<div class="crow">${icn("pin")} ${esc(l.address)}</div>` : ""}
+      ${l.phone ? `<div class="crow">${icn("phone")} <a href="tel:${esc(l.phone).replace(/[^+\d]/g,'')}">${esc(l.phone)}</a><span class="cpy" onclick="copyLink(this,'${encodeURIComponent(l.phone_e164||l.phone)}')">copy</span></div>`
+                : `<div class="crow missing">${icn("phone")} No phone in the map data</div>`}
+      ${l.email ? `<div class="crow">${icn("mail")} <a href="mailto:${esc(l.email)}">${esc(l.email)}</a><span class="cpy" onclick="copyLink(this,'${encodeURIComponent(l.email)}')">copy</span></div>`
+                : `<div class="crow missing">${icn("mail")} No email in the map data</div>`}
+      ${l.whatsapp ? `<div class="crow">${icn("social")} <a href="${esc(l.whatsapp)}" target="_blank"><b>Message on WhatsApp &rarr;</b></a><span class="cpy" onclick="copyLink(this,'${encodeURIComponent(l.whatsapp)}')">copy</span></div>` : ""}
+      ${l.website ? `<div class="crow">${icn("globe")} <a href="${esc(l.website)}" target="_blank">${esc(l.website)}</a></div>` : ""}
+      ${socRows}
+      ${l.opening_hours ? `<div class="crow">${icn("clock")} ${esc(l.opening_hours)}</div>` : ""}
+      <div class="crow">${icn("search")} <a href="https://www.google.com/search?q=${gq}" target="_blank">Google them →</a></div>
+      ${!soc.facebook ? `<div class="crow">${icn("social")} <a href="https://www.facebook.com/search/top?q=${gq}" target="_blank">Find their Facebook →</a></div>` : ""}
+      ${!soc.instagram ? `<div class="crow">${icn("social")} <a href="https://www.google.com/search?q=site:instagram.com+${gq}" target="_blank">Find their Instagram →</a></div>` : ""}
+      <div class="crow">${icn("map")} <a href="https://www.google.com/maps/search/${gq}" target="_blank">Google Maps →</a></div>
+      ${l.osm_url ? `<div class="crow">${icn("link")} <a href="${esc(l.osm_url)}" target="_blank">Source listing →</a></div>` : ""}
+    </div>
+
+    <div class="d-section">
+      <div class="d-label">Pipeline</div>
+      <div class="stagebtns">
+        ${["New","Contacted","Replied","Won","Lost"].map(s =>
+          `<button class="${s===l.stage?'on':''}" onclick="setStage('${l.id}','${s}')">${s}</button>`).join("")}
+      </div>
+    </div>
+
+    <div class="d-section">
+      <div class="d-label">Your notes</div>
+      <textarea id="notes" onblur="saveNotes('${l.id}')" placeholder="Called Tuesday, asked me to ring back Friday...">${esc(l.notes||"")}</textarea>
+    </div>
+
+    <div class="d-section">
+      <div class="d-label">Ready-to-send message</div>
+      <div class="mtabs">
+        ${[["fb","Social DM"],["email","Cold email"],["call","Call script"],["follow","Follow-up"]]
+          .map(([k,lab]) => `<div class="mtab ${msgMode===k?'on':''}" onclick="setMode('${k}')">${lab}</div>`).join("")}
+      </div>
+      <div class="mbox" id="mbox">Loading...</div>
+      ${l.foundry_demo ? `<div style="font-size:11px;color:var(--mut);margin-top:6px;line-height:1.45">Tip: paste the Foundry link above into the message &mdash; "I built you this" lands far harder than "I could build you one".</div>` : ""}
+      <div class="row">
+        <button class="btn sm" onclick="copyMsg(this)">Copy</button>
+        <button class="btn ghost sm" onclick="getMessage(true)" ${hasAI?"":"disabled title='Add an API key in Settings to enable'"}>
+          ${hasAI ? "Rewrite with AI" : "AI off (add key in Settings)"}
+        </button>
+        <button class="btn ghost sm" onclick="del('${l.id}')">Delete lead</button>
+      </div>
+    </div>
+
+    ${l.foundry_demo ? `<div class="d-section">
+      <div class="d-label">Ripple Foundry &mdash; ${esc(l.niche)}</div>
+      <div style="font-size:11.5px;color:var(--mut);margin-bottom:8px;line-height:1.45">
+        Live demos with <b>${esc(l.name)}</b> already inside them. Copy a link, paste it straight into a DM.
+      </div>
+      <div class="crow">${icn("globe")}
+        <a href="${esc(l.foundry_demo)}" target="_blank"><b>Open website demo &rarr;</b></a>
+        <span class="cpy" onclick="copyLink(this,'${encodeURIComponent(l.foundry_demo)}')">copy website link</span>
+      </div>
+      ${l.foundry_app ? `<div class="crow">${icn("doc")}
+        <a href="${esc(l.foundry_app)}" target="_blank"><b>Open dashboard demo &rarr;</b></a>
+        <span class="cpy" onclick="copyLink(this,'${encodeURIComponent(l.foundry_app)}')">copy dashboard link</span>
+      </div>` : ""}
+      ${l.foundry_app ? `<div class="row" style="margin-top:8px">
+        <button class="btn ghost sm" onclick="copyLink(this,'${encodeURIComponent(l.foundry_demo + "\n" + l.foundry_app)}')">Copy both links</button>
+      </div>` : ""}
+    </div>` : ""}
+
+    <div class="d-section">
+      <div class="d-label">Build their website</div>
+      <div class="row" style="margin-top:0">
+        <button class="btn ghost sm" style="flex:1" onclick="openBrief('${l.id}', false)">Quick brief · instant, local</button>
+        <button class="btn sm" style="flex:1" onclick="openBrief('${l.id}', true)" ${hasAI?"":"disabled title='Add an AI key in Settings first'"}>AI brief · live data</button>
+      </div>
+      <div style="font-size:11px;color:var(--mut);margin-top:6px;line-height:1.45">Copy the brief into any AI to build their website. The AI version also reads their current site and writes richer copy.</div>
+    </div>`;
+}
+
+async function openBrief(id, useAI) {
+  const l = LEADS.find(x => x.id === id);
+  document.getElementById("briefTitle").textContent = "Business brief — " + (l ? l.name : "");
+  document.getElementById("briefBox").textContent = useAI
+    ? "Writing with AI… (also reading their current site, if they have one)"
+    : "Building brief…";
+  document.getElementById("briefBackdrop").classList.add("open");
+  try {
+    const d = await (await fetch("/api/brief", {
+      method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({id, ai: !!useAI})
+    })).json();
+    document.getElementById("briefBox").textContent = d.brief || d.error || "(empty)";
+    if (useAI && d.source === "no_key") {
+      document.getElementById("briefBox").textContent +=
+        "\n\n(No AI key saved for the selected provider — showing the local brief. Add a key in Settings for the AI version.)";
+    }
+  } catch (e) {
+    document.getElementById("briefBox").textContent = "Could not generate the brief: " + e.message;
+  }
+}
+function copyBrief(btn) {
+  navigator.clipboard.writeText(document.getElementById("briefBox").innerText).then(() => {
+    const o = btn.textContent; btn.textContent = "✓ Copied"; setTimeout(()=>btn.textContent=o, 1400);
+  });
+}
+
+function setMode(m) { msgMode = m; renderDetail(); getMessage(false); }
+
+async function checkInsta(id, btn){
+  var o=btn.textContent; btn.textContent="...";
+  try{
+    var d=await (await fetch("/api/insta",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({ids:[id],max:1})})).json();
+    if(d.error){ show("err", d.error); btn.textContent=o; return; }
+    var r=d.results && d.results[id];
+    if(r){ var l=LEADS.find(function(x){return x.id===id;});
+      if(l){ l.insta_status=r.status; l.insta_last=r.last_post||""; }
+      renderDetail(); renderList();
+      if(r.note) show("info","Instagram: "+r.note);
+    } else { btn.textContent=o; }
+  }catch(e){ show("err","Instagram check failed."); btn.textContent=o; }
+}
+
+async function getMessage(useAI) {
+  const box = document.getElementById("mbox");
+  if (!box) return;
+  box.textContent = useAI ? "Rewriting with AI..." : "Loading...";
+  try {
+    const d = await (await fetch("/api/message", {
+      method: "POST", headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({id: selId, kind: msgMode, ai: useAI, lang: LANG})
+    })).json();
+    box.textContent = d.message || "(empty)";
+    if (d.source && d.source.startsWith("fallback")) {
+      show("err", "AI rewrite failed — showing the template instead, which still works. (" + esc(d.source) + ")");
+    }
+  } catch (e) { box.textContent = "Could not load message."; }
+}
+
+function copyLink(btn, enc) {
+  navigator.clipboard.writeText(decodeURIComponent(enc)).then(function(){
+    var o = btn.textContent; btn.textContent = "\u2713 Copied";
+    setTimeout(function(){ btn.textContent = o; }, 1400);
+  });
+}
+
+function copyMsg(btn) {
+  navigator.clipboard.writeText(document.getElementById("mbox").innerText).then(() => {
+    const o = btn.textContent; btn.textContent = "✓ Copied"; setTimeout(()=>btn.textContent=o, 1400);
+  });
+}
+
+async function setStage(id, stage) {
+  await fetch("/api/lead/" + id, {method:"PATCH", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({stage})});
+  const l = LEADS.find(x=>x.id===id); if (l) l.stage = stage;
+  renderList(); renderDetail();
+  loadLeads();
+}
+
+async function saveNotes(id) {
+  const v = document.getElementById("notes").value;
+  await fetch("/api/lead/" + id, {method:"PATCH", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({notes: v})});
+  const l = LEADS.find(x=>x.id===id); if (l) l.notes = v;
+}
+
+async function del(id) {
+  if (!confirm("Delete this lead?")) return;
+  await fetch("/api/lead/" + id, {method:"DELETE"});
+  selId = null;
+  document.getElementById("detail").innerHTML = '<div class="ph">Select a business to see its details.</div>';
+  loadLeads();
+}
+
+// ── settings ──────────────────────────────────────────────────────────────────
+function setProvider(p) {
+  provider = p;
+  ["openai","anthropic","grok","none"].forEach(function(x){
+    var el=document.getElementById("prov_"+x); if(el) el.classList.toggle("on", p===x); });
+  document.getElementById("openaiFields").style.display    = p==="openai"    ? "" : "none";
+  document.getElementById("anthropicFields").style.display = p==="anthropic" ? "" : "none";
+  document.getElementById("grokFields").style.display      = p==="grok"      ? "" : "none";
+}
+
+/* ── manual link builder ─────────────────────────────────────── */
+async function openManual(){
+  var sel=document.getElementById("m_trade");
+  if(!sel.options.length){
+    try{
+      var r=await (await fetch("/api/niches")).json();
+      var segs=r.segments||{};
+      sel.innerHTML = Object.keys(segs).sort().map(function(s){
+        return '<optgroup label="'+s+'">'+segs[s].map(function(n){
+          return '<option'+(n==="Beauty Salon"?' selected':'')+'>'+n+'</option>';}).join("")+'</optgroup>';
+      }).join("");
+    }catch(e){ show("err","Couldn't load trades."); return; }
+  }
+  document.getElementById("manualBackdrop").classList.add("open");
+  buildManual();
+}
+
+/* every keystroke fires a request; without a sequence number a slow early
+   reply can land after a fast later one and show a link for a half-typed name */
+var MSEQ=0;
+async function buildManual(){
+  var seq=++MSEQ;
+  var biz=document.getElementById("m_biz").value.trim();
+  if(!biz){ MSEQ++; document.getElementById("m_demo").textContent="—";
+            document.getElementById("m_app").textContent="—"; return; }
+  try{
+    var d=await (await fetch("/api/manual-link",{method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({business:biz,niche:document.getElementById("m_trade").value,
+        city:document.getElementById("m_city").value.trim(),
+        phone:document.getElementById("m_phone").value.trim()})})).json();
+    if(seq!==MSEQ) return;                       // a newer keystroke already won
+    document.getElementById("m_demo").textContent = d.foundry_demo || "no template for this trade";
+    document.getElementById("m_app").textContent  = d.foundry_app  || "no template for this trade";
+  }catch(e){ show("err","Link build failed."); }
+}
+
+function copyManual(btn,id){
+  var t=document.getElementById(id).textContent.trim();
+  if(!t||t==="—") return;
+  navigator.clipboard.writeText(t).then(function(){
+    var o=btn.textContent; btn.textContent="\u2713 Copied";
+    setTimeout(function(){btn.textContent=o;},1400);});
+}
+function copyManualBoth(btn){
+  var a=document.getElementById("m_demo").textContent.trim();
+  var b=document.getElementById("m_app").textContent.trim();
+  if(!a||a==="—") return;
+  navigator.clipboard.writeText(a+"\n"+b).then(function(){
+    var o=btn.textContent; btn.textContent="\u2713 Copied both";
+    setTimeout(function(){btn.textContent=o;},1400);});
+}
+function openManualLink(id){
+  var t=document.getElementById(id).textContent.trim();
+  if(t&&t!=="—"&&t.indexOf("http")===0) window.open(t,"_blank");
+}
+
+/* ── Kanban board ────────────────────────────────────────────── */
+var BOARD=false, STAGES=["New","Contacted","Replied","Won","Lost"];
+function toggleView(){
+  BOARD=!BOARD;
+  document.getElementById("board").style.display = BOARD ? "" : "none";
+  document.getElementById("layout").style.display = BOARD ? "none" : "flex";
+  document.getElementById("viewBtn").textContent = BOARD ? "List view" : "Board view";
+  if(BOARD) renderBoard();
+}
+function renderBoard(){
+  var rows = LEADS.filter(passesFilters);
+  document.getElementById("board").innerHTML =
+    '<div class="kb">' + STAGES.map(function(s){
+      var inS = rows.filter(function(l){ return (l.stage||"New")===s; });
+      return '<div class="kcol" data-stage="'+s+'" ondragover="kOver(event)" '+
+             'ondragleave="kLeave(event)" ondrop="kDrop(event)">'+
+             '<div class="kh"><span>'+s+'</span><span>'+inS.length+'</span></div>'+
+             inS.map(function(l){
+               return '<div class="kc" draggable="true" data-id="'+l.id+'" '+
+                 'ondragstart="kStart(event)" ondragend="kEnd(event)" '+
+                 'onclick="pick(\''+l.id+'\')">'+
+                 '<b>'+esc(l.name)+'</b><span>'+esc(l.niche)+' · '+esc(l.city)+
+                 (l.whatsapp?' · WhatsApp':'')+'</span></div>';
+             }).join("") + '</div>';
+    }).join("") + '</div>';
+}
+function kStart(e){ e.dataTransfer.setData("id", e.target.dataset.id);
+  e.target.classList.add("drag"); }
+function kEnd(e){ e.target.classList.remove("drag"); }
+function kOver(e){ e.preventDefault(); e.currentTarget.classList.add("over"); }
+function kLeave(e){ e.currentTarget.classList.remove("over"); }
+function kDrop(e){
+  e.preventDefault(); e.currentTarget.classList.remove("over");
+  var id=e.dataTransfer.getData("id"), s=e.currentTarget.dataset.stage;
+  var l=LEADS.find(function(x){return x.id===id;});
+  if(!l||l.stage===s) return;
+  l.stage=s; renderBoard();
+  fetch("/api/lead/"+id,{method:"PATCH",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({stage:s})}).then(function(){ loadLeads(); });
+}
+
+async function openSettings() {
+  document.getElementById("settingsBackdrop").classList.add("open");
+  try {
+    const s = await (await fetch("/api/settings")).json();
+    document.getElementById("s_name").value = s.name || "";
+    document.getElementById("s_portfolio").value = s.portfolio || "";
+    document.getElementById("s_turnaround").value = s.turnaround || "";
+    document.getElementById("s_email").value = s.email || "";
+    document.getElementById("s_oamodel").value = s.openai_model || "gpt-4o-mini";
+    document.getElementById("s_anmodel").value = s.anthropic_model || "claude-sonnet-5";
+    document.getElementById("s_gkmodel").value = s.grok_model || "grok-2-latest";
+    document.getElementById("s_lang").value = s.lang || "en";
+    document.getElementById("s_agency").value = s.agency || "";
+    document.getElementById("s_insta").checked = !!s.insta_check;
+    document.getElementById("instaAvail").textContent =
+      s.insta_available ? "" : "(needs: pip install instaloader)";
+    ["s_oakey","s_ankey","s_gkkey"].forEach(function(i){document.getElementById(i).value="";});
+    setProvider(s.ai_provider || "openai");
+    var gk=document.getElementById("gkBadge");
+    gk.textContent = s.has_grok_key ? "set" : "not set";
+    gk.className = "keybadge" + (s.has_grok_key ? "" : " off");
+    const oa = document.getElementById("oaBadge"), an = document.getElementById("anBadge");
+    oa.textContent = s.has_openai_key ? "set ✓" : "not set";
+    oa.className = "keybadge" + (s.has_openai_key ? "" : " off");
+    an.textContent = s.has_anthropic_key ? "set ✓" : "not set";
+    an.className = "keybadge" + (s.has_anthropic_key ? "" : " off");
+  } catch (e) {
+    show("err", "Couldn't load settings — is the app still running?");
+  }
+}
+function closeSettings() { document.getElementById("settingsBackdrop").classList.remove("open"); }
+
+async function saveSettings() {
+  const body = {
+    name: document.getElementById("s_name").value.trim(),
+    portfolio: document.getElementById("s_portfolio").value.trim(),
+    turnaround: document.getElementById("s_turnaround").value.trim(),
+    email: document.getElementById("s_email").value.trim(),
+    ai_provider: provider,
+    openai_model: document.getElementById("s_oamodel").value.trim(),
+    anthropic_model: document.getElementById("s_anmodel").value.trim(),
+    grok_model: document.getElementById("s_gkmodel").value.trim(),
+    lang: document.getElementById("s_lang").value,
+    agency: document.getElementById("s_agency").value.trim(),
+    insta_check: document.getElementById("s_insta").checked,
+  };
+  const oaKey = document.getElementById("s_oakey").value.trim();
+  const anKey = document.getElementById("s_ankey").value.trim();
+  var gkKey = document.getElementById("s_gkkey").value.trim();
+  if (oaKey) body.openai_api_key = oaKey;
+  if (anKey) body.anthropic_api_key = anKey;
+  if (gkKey) body.grok_api_key = gkKey;
+  try {
+    const r = await (await fetch("/api/settings", {
+      method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body)
+    })).json();
+    hasAI = r.ai_ready;
+    LANG = body.lang || "en";
+    closeSettings();
+    show("ok", "Settings saved." + (hasAI ? " AI rewrite is on (" + provider + ")." : " AI rewrite stays off until you add a key for the selected provider."));
+    if (selId) { renderDetail(); getMessage(false); }
+  } catch (e) {
+    show("err", "Couldn't save settings.");
+  }
+}
+
+boot();
+</script>
+</body>
+</html>
