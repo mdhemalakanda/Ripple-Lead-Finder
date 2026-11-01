@@ -92,13 +92,22 @@
   .stat span { font-size:9.5px; color:var(--mut); text-transform:uppercase; letter-spacing:.08em; font-weight:600; }
 
   .filters { display:flex; gap:9px; flex-wrap:wrap; align-items:center; margin-bottom:14px; }
+  .d-close { display:none; }  /* only meaningful in the phone popup */
 
   .layout { display:flex; gap:18px; align-items:flex-start; }
   .list { flex:1; min-width:0; }
   .detail { width:430px; flex-shrink:0; background:var(--card); border:1px solid var(--line);
     border-radius:14px; padding:20px; position:sticky; top:14px; max-height:90vh;
     overflow-y:auto; box-shadow:0 1px 3px rgba(35,34,30,.04); }
-  @media (max-width:1020px){ .layout{flex-direction:column} .detail{width:100%;position:static} }
+  @media (max-width:1020px){
+    .layout{flex-direction:column}
+    /* on phones the detail becomes a full-screen popup instead of a squeezed
+       side panel — pick() opens it, the Close button (or a lead tap) closes */
+    .detail{display:none;position:fixed;inset:0;width:100%;max-height:none;
+      border-radius:0;z-index:220;padding:14px 16px 40px}
+    .detail.open{display:block}
+    .d-close{display:inline-block;position:sticky;top:0;float:right;margin:0 0 8px 8px;z-index:5}
+  }
 
   .lead { background:var(--card); border:1px solid var(--line); border-radius:12px;
     padding:13px 15px; margin-bottom:9px; cursor:pointer; transition:border-color .12s; }
@@ -1367,7 +1376,14 @@ const ICONS = {
 };
 function icn(n) { return ICONS[n] || ICONS.link; }
 
-function pick(id) { selId = String(id); msgMode = "fb"; renderList(); renderDetail(); getMessage(false); }
+function pick(id) {
+  selId = String(id); msgMode = "fb";
+  renderList(); renderDetail(); getMessage(false);
+  // on phones the detail is a popup — slide it over the list
+  if (window.matchMedia("(max-width:1020px)").matches)
+    document.getElementById("detail").classList.add("open");
+}
+function closeDetailPopup() { document.getElementById("detail").classList.remove("open"); }
 
 function renderDetail() {
   const l = LEADS.find(x => x.id === selId);
@@ -1387,6 +1403,7 @@ function renderDetail() {
       <span onclick="toggleStar('${l.id}')" title="Shortlist: I'm going to message them"
         style="cursor:pointer;font-size:22px;line-height:1;color:${l.starred?'#d9a13b':'#c9c5b8'}">${l.starred?'★':'☆'}</span>
     </div>
+    <button class="btn ghost sm d-close" onclick="closeDetailPopup()">✕ Close</button>
     <div class="d-meta">${esc(l.niche)} · ${esc(l.city)}${l.country?", "+esc(l.country):""} · score ${l.score}${l.verified_date ? " · data updated "+esc(l.verified_date) : ""}</div>
     <div class="d-why">${esc(l.reason||"")}</div>
     ${l.owner ? `<div class="d-owner">Run by ${esc(l.owner)} — open your call or message with their name.</div>` : ""}
