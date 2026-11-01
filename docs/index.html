@@ -1025,6 +1025,68 @@ function currentCity() {
   return document.getElementById("city").value.trim();
 }
 
+// ── suggestions while typing a town name ──────────────────────────────────────
+// The type-it-yourself field gets live suggestions from Photon (same geocoder
+// the engine uses), so it works even when the per-country town list is empty.
+(function () {
+  const inp = document.getElementById("city");
+  if (!inp) return;
+  const holder = document.createElement("div");
+  holder.style.position = "relative";
+  inp.parentNode.insertBefore(holder, inp);
+  holder.appendChild(inp);
+  const panel = document.createElement("div");
+  panel.className = "slist";
+  holder.appendChild(panel);
+
+  let timer = null;
+  function close() { panel.style.display = "none"; }
+
+  const PLACE_TYPES = ["city", "town", "village", "municipality", "borough", "suburb", "township"];
+
+  async function suggest(q) {
+    const country = document.getElementById("country").value;
+    const names = [];
+    try {
+      // Photon first — built for autocomplete, handles partial names well.
+      const u = "https://photon.komoot.io/api/?limit=8&layers=city,town,village&q=" +
+        encodeURIComponent(q + ", " + country);
+      const feats = (await (await fetch(u)).json()).features || [];
+      for (const f of feats) {
+        const n = (f.properties || {}).name;
+        if (n && !names.some(x => x.toLowerCase() === n.toLowerCase())) names.push(n);
+      }
+    } catch (e) { /* fall through to Nominatim */ }
+    if (!names.length) {
+      // Photon unreachable or blocked — Nominatim as a second geocoder
+      try {
+        const u = "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=10&addressdetails=1&q=" +
+          encodeURIComponent(q + ", " + country);
+        const rows = await (await fetch(u)).json();
+        for (const r of (rows || [])) {
+          if (r.category === "place" && PLACE_TYPES.includes(r.type) && r.name &&
+              !names.some(x => x.toLowerCase() === r.name.toLowerCase())) names.push(r.name);
+        }
+      } catch (e) { /* no suggestions this time */ }
+    }
+    if (!names.length) { close(); return; }
+    panel.innerHTML = names.map(n => `<div class="sitem">${n.replace(/</g, "&lt;")}</div>`).join("");
+    Array.from(panel.querySelectorAll(".sitem")).forEach(el => {
+      el.onmousedown = e => { e.preventDefault(); inp.value = el.textContent; close(); };
+    });
+    panel.style.display = "block";
+  }
+
+  inp.addEventListener("input", () => {
+    clearTimeout(timer);
+    const v = inp.value.trim();
+    if (v.length < 2) { close(); return; }
+    timer = setTimeout(() => suggest(v), 300);
+  });
+  inp.addEventListener("blur", () => setTimeout(close, 150));
+  inp.addEventListener("keydown", e => { if (e.key === "Escape") close(); });
+})();
+
 async function doSearch() {
   const btn = document.getElementById("goBtn");
   const city = currentCity();
